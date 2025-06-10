@@ -1,4 +1,6 @@
 
+# Lithospermum Network Pharmacology Analysis
+
 ## Overview
 
 This repository provides complete reproducibility for a network pharmacology study of *Lithospermum erythrorhizon* (紫草), including all raw data, analysis scripts, and results. The study investigates the multi-target mechanisms of this traditional Chinese medicine against inflammatory diseases using systems pharmacology approaches.
