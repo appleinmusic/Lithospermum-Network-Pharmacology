@@ -1,0 +1,4 @@
+Figure1_PPI_Network.png: 基于STRING数据库v12.0的蛋白质相互作用网络，节点大小表示度中心性，边宽度表示相互作用置信度
+Figure2_Network_Topology.png: 网络拓扑分析，包括度分布和中心性分析散点图
+Figure3_Centrality_Correlation.png: 不同中心性指标之间的相关性热图
+Figure4_Functional_Modules.png: 基于Louvain算法的功能模块检测结果，不同颜色代表不同功能模块

@@ -1,0 +1,11 @@
+"pathway","gene_count","p_value","neg_log_p"
+"PI3K-Akt signaling",12,2.1e-08,7.67778070526608
+"MAPK signaling",10,4.3e-07,6.36653154442041
+"TNF signaling",8,1.2e-06,5.92081875395237
+"HIF-1 signaling",7,2.8e-06,5.55284196865778
+"IL-17 signaling",6,8.9e-06,5.05060999335509
+"Apoptosis",6,1.5e-05,4.82390874094432
+"PPAR signaling",5,3.2e-05,4.49485002168009
+"FoxO signaling",5,5.1e-05,4.29242982390206
+"NF-kappa B signaling",5,7.3e-05,4.13667713987954
+"Adipocytokine signaling",4,0.00014,3.85387196432176

@@ -1,0 +1,28 @@
+{
+  "timestamp": ["2025-06-03 19:14:45"],
+  "plant_info": {
+    "plant_id": ["NPO11776"],
+    "scientific_name": ["Lithospermum erythrorhizon"],
+    "chinese_name": ["Lithospermum Erythrorhizon"]
+  },
+  "ingredient_stats": {
+    "total_ingredients": [26],
+    "admet_filtered": [21],
+    "filter_rate": [80.8]
+  },
+  "target_stats": {
+    "total_interactions": [91],
+    "valid_interactions": [77],
+    "unique_targets": [32]
+  },
+  "admet_criteria": {
+    "MW_range": ["150-800 Da"],
+    "LogP_range": ["-2 to 5"],
+    "TPSA_max": ["≤140 Ų"],
+    "nRot_max": ["≤10"]
+  },
+  "validation_results": {
+    "ingredient_pass_rate": [81.9],
+    "target_pass_rate": [100]
+  }
+}

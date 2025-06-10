@@ -1,0 +1,6 @@
+=== ADMET Properties Summary ===
+Total Active Compounds: 21
+MW Mean (Da): 292.73
+MW Range (Da): 152.24-388.42
+LogP Mean: 3.477
+TPSA Mean (Å²): 72.3
