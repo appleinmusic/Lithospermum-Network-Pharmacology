@@ -1,7 +1,7 @@
-# Network visualization script for Lithospermum erythrorhizon
-# PPI network visualization based on STRING database
+# 紫草网络药理学分析 - 网络可视化
+# 基于STRING数据库构建的PPI网络可视化
 
-# Load required packages
+# 加载必需的包
 suppressMessages({
   library(igraph)
   library(ggplot2)
@@ -17,7 +17,7 @@ suppressMessages({
 # 创建输出目录
 dir.create("results/figures", recursive = TRUE, showWarnings = FALSE)
 
-cat("Starting network visualization analysis...\n")
+cat("开始网络可视化分析...\n")
 
 # 1. 加载网络数据
 if (file.exists("results/network/ppi_network.rds")) {
@@ -40,6 +40,7 @@ if (file.exists("results/tables/target_string_mapping.csv")) {
 # 2. 网络基本可视化
 cat("正在生成基础网络图...\n")
 
+# 设置节点颜色（简化为单一类型，因为都是紫草靶点）
 node_colors <- c("紫草靶点" = "#FF6B6B", "其他" = "#95A5A6")
 
 # 确保所有节点都有node_type属性
@@ -157,7 +158,7 @@ grid.arrange(p1, p2, ncol = 2)
 dev.off()
 
 # 中心性相关性热图
-png("results/figures/Figure3_Centrality_Correlation.png", width = 10, height = 8, units = "in", res = 300)
+png("results/figures/Figure3B_Centrality_Correlation.png", width = 10, height = 8, units = "in", res = 300)
 corrplot(centrality_cor, method = "color", type = "upper", 
          addCoef.col = "black", tl.col = "black", tl.srt = 45,
          title = "Centrality Measures Correlation",
@@ -212,29 +213,52 @@ cat("检测到", max(V(g)$community), "个功能模块\n")
 modularity_score <- modularity(communities)
 cat("模块化系数:", round(modularity_score, 3), "\n")
 
-# 可视化功能模块
+# 可视化功能模块 - 优化版本
 set.seed(123)
 module_colors <- rainbow(max(V(g)$community))
 V(g)$module_color <- module_colors[V(g)$community]
 
-png("results/figures/Figure4_Functional_Modules.png", width = 14, height = 12, units = "in", res = 300)
-par(mar = c(2, 2, 4, 6))
+png("results/figures/Figure4_Functional_Modules.png", width = 16, height = 14, units = "in", res = 300)
+par(mar = c(2, 2, 4, 8), bg = "white")
+
+# 使用更好的布局算法
+layout_coord <- layout_with_fr(g, niter = 500)
+
+# 只显示hub节点的标签，减少密集度
+hub_threshold <- quantile(degree(g), 0.7)  # 只显示前30%的节点标签
+V(g)$show_label <- ifelse(degree(g) >= hub_threshold, V(g)$gene_symbol, "")
+
 plot(g, 
-     layout = layout_fr,
+     layout = layout_coord,
      vertex.color = V(g)$module_color,
-     vertex.label = V(g)$gene_symbol,
-     vertex.label.cex = 0.7,
+     vertex.label = V(g)$show_label,
+     vertex.label.cex = 1.0,          # 增大字体
      vertex.label.color = "black",
      vertex.label.font = 2,
-     vertex.size = 10,
+     vertex.size = pmax(8, degree(g) * 0.8),  # 根据度数调整节点大小
      vertex.frame.color = "white",
-     edge.color = alpha("gray60", 0.6),
-     main = paste("Functional Modules\n(Modularity =", round(modularity_score, 3), ")"),
-     cex.main = 1.5)
+     vertex.frame.width = 2,
+     edge.color = alpha("gray50", 0.4),
+     edge.width = 0.8,
+     main = paste("Functional Modules in PPI Network\n(Modularity Score =", round(modularity_score, 3), ")"),
+     cex.main = 1.8,
+     font.main = 2)
 
-# 添加模块边界
-plot(communities, g, layout = layout_fr, add = TRUE, 
-     col = alpha(module_colors, 0.3), border = module_colors)
+# 添加模块边界，使用更淡的颜色
+plot(communities, g, layout = layout_coord, add = TRUE, 
+     col = alpha(module_colors, 0.2), 
+     border = alpha(module_colors, 0.6),
+     lwd = 2)
+
+# 添加图例
+legend("topright", 
+       legend = paste("Module", 1:max(V(g)$community)),
+       fill = module_colors[1:max(V(g)$community)],
+       cex = 1.2,
+       bty = "n",
+       title = "Functional Modules",
+       title.cex = 1.3)
+
 dev.off()
 
 # 6. 生成分析摘要
@@ -268,7 +292,7 @@ write.csv(module_info, "results/tables/functional_modules.csv", row.names = FALS
 legends <- c(
   "Figure1_PPI_Network.png: 基于STRING数据库v12.0的蛋白质相互作用网络，节点大小表示度中心性，边宽度表示相互作用置信度",
   "Figure2_Network_Topology.png: 网络拓扑分析，包括度分布和中心性分析散点图",
-  "Figure3_Centrality_Correlation.png: 不同中心性指标之间的相关性热图",
+  "Figure3B_Centrality_Correlation.png: 不同中心性指标之间的相关性热图",
   "Figure4_Functional_Modules.png: 基于Louvain算法的功能模块检测结果，不同颜色代表不同功能模块"
 )
 
@@ -278,6 +302,6 @@ cat("网络可视化分析完成！\n")
 cat("生成的图表文件:\n")
 cat("- Figure1_PPI_Network.png (主要PPI网络图)\n")
 cat("- Figure2_Network_Topology.png (拓扑分析图)\n")
-cat("- Figure3_Centrality_Correlation.png (中心性相关性)\n")
+cat("- Figure3B_Centrality_Correlation.png (中心性相关性)\n")
 cat("- Figure4_Functional_Modules.png (功能模块图)\n")
 cat("分析结果表格已保存到 results/tables/ 目录\n") 

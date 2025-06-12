@@ -1,0 +1,4 @@
+"compound","target","binding_affinity","literature_source","experimental_method","bei","affinity_category","data_source","validation_status"
+"Shikonin","PTGS2",-8.7,"Motohashi N, Gallagher R, Anuradha V, Gollapudi R. J Pharm Drug Res. 2018; 1(1): 16-22","AutoDock Vina",30.1768990634755,"Very Strong","Literature","Published"
+"Alkannin","PTGS2",-9,"Motohashi N, Gallagher R, Anuradha V, Gollapudi R. J Pharm Drug Res. 2018; 1(1): 16-22","AutoDock Vina",31.2174817898023,"Very Strong","Literature","Published"
+"Celecoxib","PTGS2",-8.2,"Motohashi N, Gallagher R, Anuradha V, Gollapudi R. J Pharm Drug Res. 2018; 1(1): 16-22","AutoDock Vina",21.4997378080755,"Very Strong","Literature","Published"

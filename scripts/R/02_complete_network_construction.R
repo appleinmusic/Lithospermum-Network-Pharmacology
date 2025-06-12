@@ -1,7 +1,7 @@
-# Network construction script for Lithospermum erythrorhizon network pharmacology
-# Protein-protein interaction network construction using STRING database
+# 紫草网络药理学分析 - 完整网络构建
+# 使用STRING数据库构建蛋白质相互作用网络
 
-# Load required packages
+# 加载必需的包
 suppressMessages({
   library(dplyr)
   library(igraph)
@@ -16,47 +16,56 @@ suppressMessages({
   library(readr)
 })
 
-# 创建输出目录
+# Set working directory for reproducibility
+if (!file.exists("data") && file.exists("../../zwsjk")) {
+  setwd("../..")
+}
+
+# Create output directories (relative paths)
 dir.create("results/network", recursive = TRUE, showWarnings = FALSE)
 dir.create("results/figures", recursive = TRUE, showWarnings = FALSE)
 dir.create("results/tables", recursive = TRUE, showWarnings = FALSE)
 
 cat("Starting complete network construction analysis...\n")
+cat("Working directory:", getwd(), "\n")
 
-# 1. 加载CMAUP数据
-cat("正在从zwsjk目录加载CMAUP数据...\n")
+# 1. Load CMAUP data
+cat("Loading CMAUP data from relative path...\n")
 
-# 加载植物数据
-plants <- read_tsv("zwsjk/CMAUPv2.0_download_Plants.txt", show_col_types = FALSE)
+# Load plant data (using relative path)
+plants <- read_tsv("../../zwsjk/CMAUPv2.0_download_Plants.txt", show_col_types = FALSE)
 
+# 找到紫草
 lithospermum <- plants %>%
   filter(str_detect(tolower(Species_Name), "lithospermum") & 
          str_detect(tolower(Species_Name), "erythrorhizon"))
 
 cat("找到紫草，Plant ID:", lithospermum$Plant_ID, "\n")
 
-# 加载植物-成分关联数据
-plant_ingredients <- read_tsv("zwsjk/CMAUPv2.0_download_Plant_Ingredient_Associations_onlyActiveIngredients.txt", 
+# Load plant-ingredient associations (using relative path)
+plant_ingredients <- read_tsv("../../zwsjk/CMAUPv2.0_download_Plant_Ingredient_Associations_onlyActiveIngredients.txt", 
                              col_names = c("Plant_ID", "Ingredient_ID"), 
                              show_col_types = FALSE)
 
+# Filter ingredients for Lithospermum
 zicao_ingredient_ids <- plant_ingredients %>%
   filter(Plant_ID == lithospermum$Plant_ID) %>%
   pull(Ingredient_ID)
 
-cat("紫草相关成分数:", length(zicao_ingredient_ids), "\n")
+cat("Number of Lithospermum-related ingredients:", length(zicao_ingredient_ids), "\n")
 
-# 加载成分-靶点关联数据
-ingredient_targets <- read_tsv("zwsjk/CMAUPv2.0_download_Ingredient_Target_Associations_ActivityValues_References.txt", 
+# Load ingredient-target associations (using relative path)
+ingredient_targets <- read_tsv("../../zwsjk/CMAUPv2.0_download_Ingredient_Target_Associations_ActivityValues_References.txt", 
                               show_col_types = FALSE)
 
+# 筛选紫草成分的靶点
 zicao_targets_data <- ingredient_targets %>%
   filter(Ingredient_ID %in% zicao_ingredient_ids)
 
 cat("紫草成分-靶点关联数:", nrow(zicao_targets_data), "\n")
 
-# 加载靶点详细信息
-targets <- read_tsv("zwsjk/CMAUPv2.0_download_Targets.txt", show_col_types = FALSE)
+# Load target detailed information (using relative path)
+targets <- read_tsv("../../zwsjk/CMAUPv2.0_download_Targets.txt", show_col_types = FALSE)
 
 # 合并靶点信息
 zicao_targets_with_info <- zicao_targets_data %>%
@@ -66,28 +75,45 @@ zicao_targets_with_info <- zicao_targets_data %>%
 cat("有效紫草靶点数:", length(unique(zicao_targets_with_info$Gene_Symbol)), "\n")
 
 # 准备疾病相关靶点（假设有疾病数据或使用已知银屑病相关基因）
+# 这里我们先用紫草靶点作为主要分析对象
 all_targets <- unique(zicao_targets_with_info$Gene_Symbol)
 all_targets <- all_targets[!is.na(all_targets) & all_targets != ""]
 
 cat("总靶点数:", length(all_targets), "\n")
 
-# 3. 加载STRING数据库文件
-cat("正在加载STRING数据库...\n")
+# 3. Load STRING database files (using relative paths)
+cat("Loading STRING database...\n")
 
-# 加载蛋白质信息
-protein_info <- fread("data/string_db/9606.protein.info.v12.0.txt.gz")
-cat("STRING蛋白质信息加载完成，共", nrow(protein_info), "条记录\n")
+# Load protein information (check multiple possible locations)
+string_paths <- c("../../data/string_db", "data/string_db")
+string_db_path <- NULL
+for (path in string_paths) {
+  if (file.exists(file.path(path, "9606.protein.info.v12.0.txt.gz"))) {
+    string_db_path <- path
+    break
+  }
+}
 
-# 加载蛋白质别名
-protein_aliases <- fread("data/string_db/9606.protein.aliases.v12.0.txt.gz")
-cat("STRING蛋白质别名加载完成，共", nrow(protein_aliases), "条记录\n")
+if (is.null(string_db_path)) {
+  stop("STRING database files not found. Please run scripts/download_string_db.sh first.")
+}
 
-# 检查是否存在蛋白质相互作用文件
-if (file.exists("data/string_db/9606.protein.links.v12.0.txt.gz")) {
-  protein_links <- fread("data/string_db/9606.protein.links.v12.0.txt.gz")
-  cat("STRING蛋白质相互作用数据加载完成，共", nrow(protein_links), "条记录\n")
+cat("Using STRING database from:", string_db_path, "\n")
+
+# Load protein information
+protein_info <- fread(file.path(string_db_path, "9606.protein.info.v12.0.txt.gz"))
+cat("STRING protein info loaded:", nrow(protein_info), "records\n")
+
+# Load protein aliases
+protein_aliases <- fread(file.path(string_db_path, "9606.protein.aliases.v12.0.txt.gz"))
+cat("STRING protein aliases loaded:", nrow(protein_aliases), "records\n")
+
+# Check if protein interaction file exists
+if (file.exists(file.path(string_db_path, "9606.protein.links.v12.0.txt.gz"))) {
+  protein_links <- fread(file.path(string_db_path, "9606.protein.links.v12.0.txt.gz"))
+  cat("STRING protein interactions loaded:", nrow(protein_links), "records\n")
   
-  # 筛选高质量相互作用 (score >= 400)
+  # Filter high-quality interactions (score >= 400)
   high_quality_links <- protein_links[protein_links$combined_score >= 400, ]
   cat("高质量相互作用 (score>=400):", nrow(high_quality_links), "条\n")
   

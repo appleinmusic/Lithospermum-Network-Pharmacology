@@ -1,10 +1,9 @@
 #!/usr/bin/env Rscript
-# Data loading and preprocessing script for Lithospermum erythrorhizon network pharmacology analysis
+# 完整的数据加载和预处理脚本
 
-set.seed(42)
 options(warn = 1)
 
-# Load required packages
+# 加载必需包
 suppressPackageStartupMessages({
   library(readr)
   library(dplyr)
@@ -13,22 +12,30 @@ suppressPackageStartupMessages({
   library(validate)
 })
 
-setwd("/Users/lgmoon/Desktop/zdhky")
+# Set working directory to project root (for GitHub reproducibility)
+if (!file.exists("data") && file.exists("../../zwsjk")) {
+  # Running from scripts/R/ subdirectory
+  setwd("../..")
+} else if (!file.exists("data") && !file.exists("zwsjk")) {
+  stop("ERROR: Cannot find data directories. Please run from project root or ensure CMAUP data exists.")
+}
 
-cat("Loading and preprocessing data for network pharmacology analysis...\n")
-cat("Start time:", as.character(Sys.time()), "\n\n")
+cat("=== Lithospermum Network Pharmacology Data Loading ===\n")
+cat("Start time:", as.character(Sys.time()), "\n")
+cat("Working directory:", getwd(), "\n\n")
 
-# 1. Data file paths
-cat("1. Setting up data file paths...\n")
+# 1. Set data file paths (relative paths for reproducibility)
 
-# CMAUP database file paths
+cat("1. Setting data file paths...\n")
+
+# CMAUP database file paths (relative to project root)
 data_files <- list(
-  plants = "zwsjk/CMAUPv2.0_download_Plants.txt",
-  ingredients = "zwsjk/CMAUPv2.0_download_Ingredients_onlyActive.txt", 
-  plant_ingredients = "zwsjk/CMAUPv2.0_download_Plant_Ingredient_Associations_onlyActiveIngredients.txt",
-  targets = "zwsjk/CMAUPv2.0_download_Targets.txt",
-  ingredient_targets = "zwsjk/CMAUPv2.0_download_Ingredient_Target_Associations_ActivityValues_References.txt",
-  admet = "zwsjk/CMAUPv2.0_download_Human_Oral_Bioavailability_information_of_Ingredients_All.txt"
+  plants = "../../zwsjk/CMAUPv2.0_download_Plants.txt",
+  ingredients = "../../zwsjk/CMAUPv2.0_download_Ingredients_onlyActive.txt", 
+  plant_ingredients = "../../zwsjk/CMAUPv2.0_download_Plant_Ingredient_Associations_onlyActiveIngredients.txt",
+  targets = "../../zwsjk/CMAUPv2.0_download_Targets.txt",
+  ingredient_targets = "../../zwsjk/CMAUPv2.0_download_Ingredient_Target_Associations_ActivityValues_References.txt",
+  admet = "../../zwsjk/CMAUPv2.0_download_Human_Oral_Bioavailability_information_of_Ingredients_All.txt"
 )
 
 # 检查所有文件是否存在
@@ -42,22 +49,24 @@ for(name in names(data_files)) {
 }
 
 if(length(missing_files) > 0) {
-  stop("Missing data files: ", paste(missing_files, collapse = ", "))
+  stop("缺失数据文件: ", paste(missing_files, collapse = ", "))
 }
 
+# 2. 加载和筛选紫草数据
 
-cat("\n2. Loading and filtering Lithospermum data...\n")
+cat("\n2. 加载和筛选紫草相关数据...\n")
 
+# 加载植物数据，查找紫草
 plants <- read_tsv(data_files$plants, show_col_types = FALSE)
 lithospermum <- plants %>%
   filter(str_detect(tolower(Species_Name), "lithospermum") & 
          str_detect(tolower(Species_Name), "erythrorhizon"))
 
 if(nrow(lithospermum) == 0) {
-  stop("Lithospermum not found(Lithospermum erythrorhizon)数据")
+  stop("未找到紫草(Lithospermum erythrorhizon)数据")
 }
 
-cat("✓ Found Lithospermum data，Plant ID:", lithospermum$Plant_ID, "\n")
+cat("✓ 找到紫草数据，Plant ID:", lithospermum$Plant_ID, "\n")
 cat("  学名:", lithospermum$Species_Name, "\n")
 cat("  中文名:", lithospermum$Plant_Name, "\n")
 
@@ -66,6 +75,7 @@ plant_ingredients_raw <- read_tsv(data_files$plant_ingredients,
                                   col_names = c("Plant_ID", "Ingredient_ID"), 
                                   show_col_types = FALSE)
 
+# 筛选紫草的成分
 lithospermum_ingredient_ids <- plant_ingredients_raw %>%
   filter(Plant_ID == lithospermum$Plant_ID) %>%
   pull(Ingredient_ID)
@@ -79,7 +89,9 @@ lithospermum_ingredients <- ingredients_raw %>%
 
 cat("✓ 成分详细信息记录数:", nrow(lithospermum_ingredients), "\n")
 
+# ==============================================================================
 # 3. ADMET筛选
+# ==============================================================================
 
 cat("\n3. 进行ADMET药物相似性筛选...\n")
 
@@ -112,7 +124,9 @@ cat("  原始成分数:", nrow(lithospermum_ingredients), "\n")
 cat("  筛选后成分数:", nrow(admet_filtered), "\n")
 cat("  筛选成功率:", round(nrow(admet_filtered)/nrow(lithospermum_ingredients)*100, 1), "%\n")
 
+# ==============================================================================
 # 4. 加载靶点数据
+# ==============================================================================
 
 cat("\n4. 加载成分-靶点相互作用数据...\n")
 
@@ -136,7 +150,9 @@ targets_with_details <- lithospermum_targets %>%
 cat("✓ 有效靶点记录数:", nrow(targets_with_details), "\n")
 cat("✓ 独特靶点数:", length(unique(targets_with_details$Gene_Symbol)), "\n")
 
+# ==============================================================================
 # 5. 数据质量验证
+# ==============================================================================
 
 cat("\n5. 进行数据质量验证...\n")
 
@@ -161,7 +177,9 @@ target_validation <- confront(targets_with_details, validation_rules[6:7])
 cat("✓ 成分数据验证通过率:", round(mean(values(ingredient_validation), na.rm = TRUE)*100, 1), "%\n")
 cat("✓ 靶点数据验证通过率:", round(mean(values(target_validation), na.rm = TRUE)*100, 1), "%\n")
 
+# ==============================================================================
 # 6. 创建输出目录并保存数据
+# ==============================================================================
 
 cat("\n6. 保存预处理数据...\n")
 
@@ -209,8 +227,9 @@ quality_report <- list(
 
 write_json(quality_report, "data/processed/data_quality_report.json", pretty = TRUE)
 
+cat("\n=== 数据加载和预处理完成 ===\n")
 cat("✓ 筛选后活性成分数:", nrow(admet_filtered), "\n")
 cat("✓ 相关靶点数:", length(unique(targets_with_details$Gene_Symbol)), "\n")
 cat("✓ 成分-靶点相互作用数:", nrow(targets_with_details), "\n")
 cat("✓ 数据质量报告已保存\n")
-cat("End time:", as.character(Sys.time()), "\n")
+cat("完成时间:", as.character(Sys.time()), "\n") 
