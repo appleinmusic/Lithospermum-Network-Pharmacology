@@ -15,7 +15,9 @@ suppressPackageStartupMessages({
 })
 
 # Set working directory and create output directory
-setwd("/Users/lgmoon/Desktop/zdhky")
+if (!file.exists("data") && file.exists("../../zwsjk")) {
+  setwd("../..")
+}
 output_dir <- "results/figures"
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)

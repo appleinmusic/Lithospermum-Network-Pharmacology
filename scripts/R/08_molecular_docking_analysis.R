@@ -10,7 +10,9 @@ suppressMessages({
 })
 
 # 设置工作目录和数据路径
-setwd("/Users/lgmoon/Desktop/zdhky")
+if (!file.exists("data") && file.exists("../../zwsjk")) {
+  setwd("../..")
+}
 data_dir <- "data/processed/"
 results_dir <- "results/"
 figures_dir <- "results/figures/"

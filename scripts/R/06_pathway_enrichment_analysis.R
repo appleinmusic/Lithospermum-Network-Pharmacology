@@ -13,7 +13,9 @@ suppressPackageStartupMessages({
 })
 
 # 设置目录路径
-setwd("/Users/lgmoon/Desktop/zdhky")
+if (!file.exists("data") && file.exists("../../zwsjk")) {
+  setwd("../..")
+}
 output_dir <- "results/figures"
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
