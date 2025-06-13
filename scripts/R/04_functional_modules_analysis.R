@@ -2,6 +2,9 @@
 # Functional Module Analysis Script for Lithospermum erythrorhizon
 # Network clustering-based functional module identification
 
+# Set random seeds for reproducibility
+set.seed(42)  # For Louvain clustering algorithm
+
 cat("=== Functional Module Analysis ===\n")
 cat("Start time:", as.character(Sys.time()), "\n")
 

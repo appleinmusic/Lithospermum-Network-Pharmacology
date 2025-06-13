@@ -1,4 +1,51 @@
-# Lithospermum erythrorhizon Network Pharmacology Reproducibility Project
+# 🌿 Lithospermum Network Pharmacology Analysis
+
+## 📋 Project Overview
+
+This repository contains the complete computational pipeline for "Network Pharmacology Analysis Reveals the Multi-Target Mechanisms of Lithospermum erythrorhizon Against Inflammatory Diseases: A Comprehensive Study Based on CMAUP v2.0 and STRING Database Integration".
+
+**Status**: ✅ **Fully Reproducible** - All scripts tested and verified  
+**Data**: Complete CMAUP v2.0 integration  
+**Network**: High-confidence STRING database analysis  
+**Results**: Publication-ready figures and tables  
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- **R 4.3.0+** with required packages (see detailed installation below)
+- **8GB+ RAM** for network analysis
+- **2GB** free disk space
+
+### One-Step Execution
+```bash
+# Clone repository
+git clone https://github.com/appleinmusic/Lithospermum-Network-Pharmacology.git
+cd Lithospermum_Network_Pharmacology_Reproducibility
+
+# Run complete analysis pipeline (8 scripts in sequence)
+Rscript scripts/R/01_complete_data_loading.R
+Rscript scripts/R/02_complete_network_construction.R  
+Rscript scripts/R/03_network_visualization.R
+Rscript scripts/R/04_functional_modules_analysis.R
+Rscript scripts/R/05_ADMET_analysis.R
+Rscript scripts/R/06_pathway_enrichment_analysis_clusterprofiler.R
+Rscript scripts/R/07_compound_target_network.R
+Rscript scripts/R/08_molecular_docking_analysis.R
+```
+
+## 📊 Key Results Generated
+
+### Main Outputs
+- **21 ADMET-filtered compounds** from L. erythrorhizon
+- **32 protein targets** with experimental validation
+- **High-confidence PPI network** (39 nodes, 278 edges)  
+- **4 functional modules** identified via Louvain clustering
+- **Pathway enrichment** analysis (GO + KEGG)
+- **Hub proteins**: TP53, PPARG, EGFR, PTGS2
+
+**Status**: ✅ Production Ready
 
 ## Project Overview
 

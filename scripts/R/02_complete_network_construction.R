@@ -1,6 +1,9 @@
 # Lithospermum erythrorhizon Network Pharmacology Analysis - Network Construction
 # Protein-protein interaction network construction using STRING database
 
+# Set random seeds for reproducibility
+set.seed(42)  # For network clustering and other random processes
+
 # Load required packages
 suppressMessages({
   library(dplyr)
