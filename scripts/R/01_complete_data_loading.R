@@ -1,9 +1,13 @@
 #!/usr/bin/env Rscript
-# 完整的数据加载和预处理脚本
+# ==============================================================================
+# Data Loading and Preprocessing Script for Lithospermum erythrorhizon
+# Network Pharmacology Analysis
+# ==============================================================================
 
+set.seed(42)
 options(warn = 1)
 
-# 加载必需包
+# Load required packages
 suppressPackageStartupMessages({
   library(readr)
   library(dplyr)
@@ -12,21 +16,18 @@ suppressPackageStartupMessages({
   library(validate)
 })
 
-# Set working directory to project root (for GitHub reproducibility)
-if (!file.exists("data") && file.exists("../../zwsjk")) {
-  # Running from scripts/R/ subdirectory
-  setwd("../..")
-} else if (!file.exists("data") && !file.exists("zwsjk")) {
-  stop("ERROR: Cannot find data directories. Please run from project root or ensure CMAUP data exists.")
-}
+# Set working directory to project root (two levels up from scripts/R/)
+project_root <- file.path(dirname(dirname(dirname(rstudioapi::getActiveDocumentContext()$path))))
+setwd(project_root)
 
-cat("=== Lithospermum Network Pharmacology Data Loading ===\n")
-cat("Start time:", as.character(Sys.time()), "\n")
-cat("Working directory:", getwd(), "\n\n")
+cat("=== Lithospermum erythrorhizon Network Pharmacology Analysis ===\n")
+cat("Start time:", as.character(Sys.time()), "\n\n")
 
-# 1. Set data file paths (relative paths for reproducibility)
+# ==============================================================================
+# 1. Setup Data Paths
+# ==============================================================================
 
-cat("1. Setting data file paths...\n")
+cat("1. Setting up data file paths...\n")
 
 # CMAUP database file paths (relative to project root)
 data_files <- list(
@@ -38,7 +39,7 @@ data_files <- list(
   admet = "../../zwsjk/CMAUPv2.0_download_Human_Oral_Bioavailability_information_of_Ingredients_All.txt"
 )
 
-# 检查所有文件是否存在
+# Check if all files exist
 missing_files <- c()
 for(name in names(data_files)) {
   if(!file.exists(data_files[[name]])) {
@@ -49,153 +50,155 @@ for(name in names(data_files)) {
 }
 
 if(length(missing_files) > 0) {
-  stop("缺失数据文件: ", paste(missing_files, collapse = ", "))
+  stop("Missing data files: ", paste(missing_files, collapse = ", "))
 }
 
-# 2. 加载和筛选紫草数据
+# ==============================================================================
+# 2. Load and Filter Lithospermum Data
+# ==============================================================================
 
-cat("\n2. 加载和筛选紫草相关数据...\n")
+cat("\n2. Loading and filtering Lithospermum-related data...\n")
 
-# 加载植物数据，查找紫草
+# Load plant data and search for Lithospermum
 plants <- read_tsv(data_files$plants, show_col_types = FALSE)
 lithospermum <- plants %>%
   filter(str_detect(tolower(Species_Name), "lithospermum") & 
          str_detect(tolower(Species_Name), "erythrorhizon"))
 
 if(nrow(lithospermum) == 0) {
-  stop("未找到紫草(Lithospermum erythrorhizon)数据")
+  stop("Lithospermum erythrorhizon data not found")
 }
 
-cat("✓ 找到紫草数据，Plant ID:", lithospermum$Plant_ID, "\n")
-cat("  学名:", lithospermum$Species_Name, "\n")
-cat("  中文名:", lithospermum$Plant_Name, "\n")
+cat("✓ Found Lithospermum data, Plant ID:", lithospermum$Plant_ID, "\n")
+cat("  Scientific name:", lithospermum$Species_Name, "\n")
+cat("  Chinese name:", lithospermum$Plant_Name, "\n")
 
-# 加载植物-成分关联数据（无列名）
+# Load plant-ingredient association data (no column names)
 plant_ingredients_raw <- read_tsv(data_files$plant_ingredients, 
                                   col_names = c("Plant_ID", "Ingredient_ID"), 
                                   show_col_types = FALSE)
 
-# 筛选紫草的成分
+# Filter ingredients for Lithospermum
 lithospermum_ingredient_ids <- plant_ingredients_raw %>%
   filter(Plant_ID == lithospermum$Plant_ID) %>%
   pull(Ingredient_ID)
 
-cat("✓ 紫草相关成分数:", length(lithospermum_ingredient_ids), "\n")
+cat("✓ Number of Lithospermum-related ingredients:", length(lithospermum_ingredient_ids), "\n")
 
-# 加载成分详细信息
+# Load ingredient detailed information
 ingredients_raw <- read_tsv(data_files$ingredients, show_col_types = FALSE)
 lithospermum_ingredients <- ingredients_raw %>%
   filter(np_id %in% lithospermum_ingredient_ids)
 
-cat("✓ 成分详细信息记录数:", nrow(lithospermum_ingredients), "\n")
+cat("✓ Number of ingredient detail records:", nrow(lithospermum_ingredients), "\n")
 
 # ==============================================================================
-# 3. ADMET筛选
+# 3. ADMET Screening
 # ==============================================================================
 
-cat("\n3. 进行ADMET药物相似性筛选...\n")
+cat("\n3. Performing ADMET drug-likeness screening...\n")
 
-# 加载ADMET数据
+# Load ADMET data
 admet_raw <- read_tsv(data_files$admet, show_col_types = FALSE)
 
-# 合并成分和ADMET数据 - 注意ADMET文件使用的是 Ingredient_ID，不是 np_id
+# Merge ingredient and ADMET data - note ADMET file uses Ingredient_ID, not np_id
 ingredients_with_admet <- lithospermum_ingredients %>%
   left_join(admet_raw, by = c("np_id" = "Ingredient_ID"), suffix = c("_ingredient", "_admet"))
 
-# 调试：检查合并后的列名
-cat("合并后的列名:", paste(names(ingredients_with_admet), collapse = ", "), "\n")
+# Debug: check merged column names
+cat("Merged column names:", paste(names(ingredients_with_admet), collapse = ", "), "\n")
 
-# 应用严格的ADMET筛选标准 - 使用正确的列名
+# Apply strict ADMET filtering criteria - use correct column names
 admet_filtered <- ingredients_with_admet %>%
   filter(
     !is.na(MW_admet), !is.na(XLOGP3), !is.na(TPSA_admet), !is.na(RTB),
-    MW_admet >= 150 & MW_admet <= 800,        # 分子量范围
-    XLOGP3 >= -2 & XLOGP3 <= 5,              # 脂水分配系数
-    TPSA_admet <= 140,                       # 极性表面积
-    RTB <= 10                                # 可旋转键数
+    MW_admet >= 150 & MW_admet <= 800,        # Molecular weight range
+    XLOGP3 >= -2 & XLOGP3 <= 5,              # Lipophilicity
+    TPSA_admet <= 140,                       # Topological polar surface area
+    RTB <= 10                                # Number of rotatable bonds
   ) %>%
   distinct(np_id, .keep_all = TRUE) %>%
-  # 重命名MW列避免冲突
+  # Rename MW column to avoid conflicts
   mutate(MW = MW_admet, LogP = XLOGP3, TPSA = TPSA_admet, nRot = RTB) %>%
   select(-MW_ingredient, -MW_admet, -TPSA_ingredient, -TPSA_admet)
 
-cat("✓ ADMET筛选结果:\n")
-cat("  原始成分数:", nrow(lithospermum_ingredients), "\n")
-cat("  筛选后成分数:", nrow(admet_filtered), "\n")
-cat("  筛选成功率:", round(nrow(admet_filtered)/nrow(lithospermum_ingredients)*100, 1), "%\n")
+cat("✓ ADMET screening results:\n")
+cat("  Original compound count:", nrow(lithospermum_ingredients), "\n")
+cat("  Filtered compound count:", nrow(admet_filtered), "\n")
+cat("  Success rate:", round(nrow(admet_filtered)/nrow(lithospermum_ingredients)*100, 1), "%\n")
 
 # ==============================================================================
-# 4. 加载靶点数据
+# 4. Load Target Data
 # ==============================================================================
 
-cat("\n4. 加载成分-靶点相互作用数据...\n")
+cat("\n4. Loading compound-target interaction data...\n")
 
-# 加载成分-靶点关联
+# Load ingredient-target associations
 ingredient_targets_raw <- read_tsv(data_files$ingredient_targets, show_col_types = FALSE)
 
-# 筛选与ADMET筛选后成分相关的靶点
+# Filter targets related to ADMET-filtered compounds
 lithospermum_targets <- ingredient_targets_raw %>%
   filter(Ingredient_ID %in% admet_filtered$np_id)
 
-cat("✓ 成分-靶点相互作用数:", nrow(lithospermum_targets), "\n")
+cat("✓ Number of compound-target interactions:", nrow(lithospermum_targets), "\n")
 
-# 加载靶点详细信息
+# Load target detailed information
 targets_raw <- read_tsv(data_files$targets, show_col_types = FALSE)
 
-# 合并靶点详细信息 - 注意成分-靶点文件使用 Target_ID，靶点文件可能使用不同的ID列
+# Merge target details - note compound-target file uses Target_ID, target file may use different ID column
 targets_with_details <- lithospermum_targets %>%
   left_join(targets_raw, by = c("Target_ID" = "Target_ID")) %>%
   filter(!is.na(Gene_Symbol))
 
-cat("✓ 有效靶点记录数:", nrow(targets_with_details), "\n")
-cat("✓ 独特靶点数:", length(unique(targets_with_details$Gene_Symbol)), "\n")
+cat("✓ Valid target records:", nrow(targets_with_details), "\n")
+cat("✓ Unique targets:", length(unique(targets_with_details$Gene_Symbol)), "\n")
 
 # ==============================================================================
-# 5. 数据质量验证
+# 5. Data Quality Validation
 # ==============================================================================
 
-cat("\n5. 进行数据质量验证...\n")
+cat("\n5. Performing data quality validation...\n")
 
-# 定义验证规则
+# Define validation rules
 validation_rules <- validator(
-  # 成分数据验证
+  # Ingredient data validation
   ingredient_id_not_na = !is.na(np_id),
   ingredient_name_not_empty = nchar(as.character(pref_name)) > 0,
   mw_positive = MW > 0,
   logp_range = LogP >= -10 & LogP <= 10,
   tpsa_positive = TPSA >= 0,
   
-  # 靶点数据验证
+  # Target data validation
   gene_symbol_not_empty = nchar(as.character(Gene_Symbol)) > 0,
   protein_name_not_empty = nchar(as.character(Protein_Name)) > 0
 )
 
-# 验证成分数据
+# Validate ingredient data
 ingredient_validation <- confront(admet_filtered, validation_rules[1:5])
 target_validation <- confront(targets_with_details, validation_rules[6:7])
 
-cat("✓ 成分数据验证通过率:", round(mean(values(ingredient_validation), na.rm = TRUE)*100, 1), "%\n")
-cat("✓ 靶点数据验证通过率:", round(mean(values(target_validation), na.rm = TRUE)*100, 1), "%\n")
+cat("✓ Ingredient data validation pass rate:", round(mean(values(ingredient_validation), na.rm = TRUE)*100, 1), "%\n")
+cat("✓ Target data validation pass rate:", round(mean(values(target_validation), na.rm = TRUE)*100, 1), "%\n")
 
 # ==============================================================================
-# 6. 创建输出目录并保存数据
+# 6. Create Output Directory and Save Data
 # ==============================================================================
 
-cat("\n6. 保存预处理数据...\n")
+cat("\n6. Saving preprocessed data...\n")
 
-# 创建输出目录
+# Create output directory
 dir.create("data/processed", recursive = TRUE, showWarnings = FALSE)
 
-# 保存筛选后的成分数据
+# Save filtered ingredient data
 write_tsv(admet_filtered, "data/processed/lithospermum_ingredients_filtered.tsv")
 
-# 保存靶点数据
+# Save target data
 write_tsv(targets_with_details, "data/processed/lithospermum_targets.tsv")
 
-# 保存植物信息
+# Save plant information
 write_tsv(lithospermum, "data/processed/lithospermum_plant_info.tsv")
 
-# 创建数据质量报告
+# Create data quality report
 quality_report <- list(
   timestamp = Sys.time(),
   plant_info = list(
@@ -227,9 +230,9 @@ quality_report <- list(
 
 write_json(quality_report, "data/processed/data_quality_report.json", pretty = TRUE)
 
-cat("\n=== 数据加载和预处理完成 ===\n")
-cat("✓ 筛选后活性成分数:", nrow(admet_filtered), "\n")
-cat("✓ 相关靶点数:", length(unique(targets_with_details$Gene_Symbol)), "\n")
-cat("✓ 成分-靶点相互作用数:", nrow(targets_with_details), "\n")
-cat("✓ 数据质量报告已保存\n")
-cat("完成时间:", as.character(Sys.time()), "\n") 
+cat("\n=== Data Loading and Preprocessing Complete ===\n")
+cat("✓ Filtered active ingredients:", nrow(admet_filtered), "\n")
+cat("✓ Related targets:", length(unique(targets_with_details$Gene_Symbol)), "\n")
+cat("✓ Ingredient-target interactions:", nrow(targets_with_details), "\n")
+cat("✓ Data quality report saved\n")
+cat("Completion time:", as.character(Sys.time()), "\n") 

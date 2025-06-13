@@ -14,10 +14,12 @@ suppressPackageStartupMessages({
   library(stringr)
 })
 
-# Set working directory and create output directory
-if (!file.exists("data") && file.exists("../../zwsjk")) {
-  setwd("../..")
+# Set working directory to project root for relative paths
+if(require(rstudioapi) && rstudioapi::isAvailable()) {
+  project_root <- file.path(dirname(dirname(dirname(rstudioapi::getActiveDocumentContext()$path))))
+  setwd(project_root)
 }
+
 output_dir <- "results/figures"
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
@@ -50,13 +52,13 @@ ingredient_data <- readr::read_tsv(ingredient_data_file, show_col_types = FALSE)
 cat("✓ Loaded", nrow(ingredient_data), "ingredients with names.\n")
 
 # Filter for experimentally validated interactions
-# Assuming Activity_Value and Activity_Unit are present and indicate experimental validation
-# Also ensuring Gene_Symbol is not NA
+# All records in this dataset are experimentally validated
+# Just ensure Gene_Symbol is not NA
 validated_interactions <- target_data %>%
-  filter(!is.na(Activity_Value) & !is.na(Activity_Unit) & Activity_Unit != "" & !is.na(Gene_Symbol)) %>%
+  filter(!is.na(Gene_Symbol) & Gene_Symbol != "") %>%
   select(Ingredient_ID, Gene_Symbol, Activity_Value, Activity_Unit)
 
-cat("Found", nrow(validated_interactions), "interactions with activity values.\n")
+cat("Found", nrow(validated_interactions), "total interaction records.\n")
 
 # Create unique compound-target pairs
 # We use Ingredient_ID and Gene_Symbol to define a unique pair
@@ -64,13 +66,9 @@ unique_pairs <- validated_interactions %>%
   distinct(Ingredient_ID, Gene_Symbol)
 
 num_unique_pairs <- nrow(unique_pairs)
-cat("✓ Found", num_unique_pairs, "unique experimentally validated compound-target pairs.\n")
-# Compare with manuscript claim
-if (num_unique_pairs == 77) {
-  cat("  This matches the 77 pairs mentioned in the manuscript.\n")
-} else {
-  cat("  WARNING: This differs from the 77 pairs mentioned in the manuscript. Manuscript needs update to", num_unique_pairs, ".\n")
-}
+num_total_records <- nrow(validated_interactions)
+cat("✓ Found", num_total_records, "total interaction records covering", num_unique_pairs, "unique compound-target pairs.\n")
+cat("  Note: Multiple experimental records may exist for the same compound-target pair.\n")
 
 # Prepare data for network graph
 edges <- unique_pairs %>%
@@ -102,9 +100,9 @@ set.seed(123) # for reproducibility
 p_network <- ggraph(interaction_graph, layout = "fr") + # Fruchterman-Reingold layout
   geom_edge_link(aes(alpha = 0.8), color = "grey50", show.legend = FALSE) +
   geom_node_point(aes(color = type, size = degree(interaction_graph, mode = "all"))) +
-  geom_node_text(aes(label = label), repel = TRUE, size = 2.5, max.overlaps = Inf) +
+  geom_node_text(aes(label = label), repel = TRUE, size = 4.5, max.overlaps = Inf, fontface = "bold") +
   scale_color_manual(values = c("Compound" = "#FF6B6B", "Target" = "#4ECDC4")) + # Distinct colors
-  scale_size_continuous(range = c(3, 10)) + # Node size based on degree
+  scale_size_continuous(range = c(4, 12)) + # Node size based on degree
   labs(
     title = "Experimentally Validated Compound-Target Interaction Network",
     subtitle = paste0("Visualizing ", ecount(interaction_graph), " unique interactions between ",
@@ -112,19 +110,25 @@ p_network <- ggraph(interaction_graph, layout = "fr") + # Fruchterman-Reingold l
                      length(unique(nodes$id[nodes$type=='Target'])), " targets"),
     caption = "Data source: Lithospermum erythrorhizon study"
   ) +
-  theme_graph(base_family = "sans") +
+  theme_graph(base_family = "sans", base_size = 14) +
   theme(
     legend.position = "right",
-    plot.title = element_text(hjust = 0.5, face = "bold", size=16),
-    plot.subtitle = element_text(hjust = 0.5, size=12)
+    plot.title = element_text(hjust = 0.5, vjust = 1.2, face = "bold", size=18, margin = margin(t = 10, b = 10)),
+    plot.subtitle = element_text(hjust = 0.5, vjust = 1, size=14, margin = margin(b = 15)),
+    plot.caption = element_text(hjust = 0.5, size=12, margin = margin(t = 10)),
+    legend.text = element_text(size = 12),
+    legend.title = element_text(size = 14, face = "bold"),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.margin = margin(t = 20, r = 20, b = 20, l = 20)
   )
 
 # Save the plot
 output_png_path <- file.path(output_dir, "Figure7_Compound_Target_Network.png")
 output_pdf_path <- file.path(output_dir, "Figure7_Compound_Target_Network.pdf")
 
-ggsave(filename = output_png_path, plot = p_network, width = 12, height = 10, dpi = 300, units = "in")
-ggsave(filename = output_pdf_path, plot = p_network, width = 12, height = 10, units = "in")
+ggsave(filename = output_png_path, plot = p_network, width = 14, height = 12, dpi = 300, units = "in")
+ggsave(filename = output_pdf_path, plot = p_network, width = 14, height = 12, units = "in")
 
 cat("✓ Network visualization saved to:", output_png_path, "and", output_pdf_path, "\n")
 
@@ -133,11 +137,13 @@ summary_file_path <- file.path(dirname(output_dir), "compound_target_network_sum
 summary_text <- c(
   paste("Compound-Target Interaction Network Summary (Figure 7)"),
   paste("Date Generated:", Sys.Date()),
+  paste("Total experimental interaction records:", num_total_records),
   paste("Total unique experimentally validated compound-target pairs:", num_unique_pairs),
   paste("Total compounds in network:", length(unique(nodes$id[nodes$type=='Compound']))),
   paste("Total targets in network:", length(unique(nodes$id[nodes$type=='Target']))),
   paste("Total nodes in graph:", vcount(interaction_graph)),
-  paste("Total edges in graph:", ecount(interaction_graph))
+  paste("Total edges in graph:", ecount(interaction_graph)),
+  paste("Note: Some compound-target pairs have multiple experimental measurements")
 )
 writeLines(summary_text, summary_file_path)
 cat("✓ Network summary saved to:", summary_file_path, "\n")

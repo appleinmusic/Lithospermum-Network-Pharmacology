@@ -590,10 +590,9 @@ Lithospermum_Network_Pharmacology_Reproducibility/
 │       ├── 03_network_visualization.R
 │       ├── 04_functional_modules_analysis.R
 │       ├── 05_ADMET_analysis.R
-│       ├── 06_pathway_enrichment_analysis.R
+│       ├── 06_pathway_enrichment_analysis_clusterprofiler.R
 │       ├── 07_compound_target_network.R
-│       ├── 08_molecular_docking_analysis.R
-│       └── run_complete_analysis.R
+│       └── 08_molecular_docking_analysis.R
 └── results/                            # Generated results
     ├── figures/                        # Publication-quality figures
     ├── tables/                         # Data tables

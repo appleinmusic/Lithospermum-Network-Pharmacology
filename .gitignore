@@ -1,0 +1,24 @@
+# Large database files that should be downloaded separately
+data/string_db/*.txt.gz
+data/string_db/*.txt
+data/raw_databases/*.txt
+
+# R temporary files
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+
+# Large processed data files
+data/processed_data/large_*
+
+# Backup files
+*~
+*.bak
