@@ -18,12 +18,19 @@ suppressMessages({
 
 # Set working directory to project root
 if(require(rstudioapi) && rstudioapi::isAvailable()) {
+  # Running in RStudio
   project_root <- file.path(dirname(dirname(dirname(rstudioapi::getActiveDocumentContext()$path))))
   setwd(project_root)
 } else {
-  # Fallback for command line execution
-  script_dir <- dirname(sys.frame(1)$ofile)
-  project_root <- file.path(dirname(dirname(script_dir)))
+  # Running from command line - assume we're already in project root
+  # or set to a known location
+  if(basename(getwd()) == "R") {
+    setwd("../../")
+  } else if(basename(getwd()) == "scripts") {
+    setwd("../")
+  }
+  # If running from project root, do nothing
+}
   setwd(project_root)
 }
 
@@ -38,7 +45,7 @@ cat("Starting comprehensive network construction analysis...\n")
 cat("Loading CMAUP data from zwsjk directory...\n")
 
 # Load plant data
-plants <- read_tsv("../../zwsjk/CMAUPv2.0_download_Plants.txt", show_col_types = FALSE)
+plants <- read_tsv("zwsjk/CMAUPv2.0_download_Plants.txt", show_col_types = FALSE)
 
 # Find Lithospermum
 lithospermum <- plants %>%
@@ -48,7 +55,7 @@ lithospermum <- plants %>%
 cat("Found Lithospermum, Plant ID:", lithospermum$Plant_ID, "\n")
 
 # Load plant-ingredient association data
-plant_ingredients <- read_tsv("../../zwsjk/CMAUPv2.0_download_Plant_Ingredient_Associations_onlyActiveIngredients.txt", 
+plant_ingredients <- read_tsv("zwsjk/CMAUPv2.0_download_Plant_Ingredient_Associations_onlyActiveIngredients.txt", 
                              col_names = c("Plant_ID", "Ingredient_ID"), 
                              show_col_types = FALSE)
 
@@ -60,7 +67,7 @@ zicao_ingredient_ids <- plant_ingredients %>%
 cat("Lithospermum-related ingredients:", length(zicao_ingredient_ids), "\n")
 
 # Load ingredient-target association data
-ingredient_targets <- read_tsv("../../zwsjk/CMAUPv2.0_download_Ingredient_Target_Associations_ActivityValues_References.txt", 
+ingredient_targets <- read_tsv("zwsjk/CMAUPv2.0_download_Ingredient_Target_Associations_ActivityValues_References.txt", 
                               show_col_types = FALSE)
 
 # Filter targets of Lithospermum ingredients
@@ -70,7 +77,7 @@ zicao_targets_data <- ingredient_targets %>%
 cat("Lithospermum ingredient-target associations:", nrow(zicao_targets_data), "\n")
 
 # Load target detailed information
-targets <- read_tsv("../../zwsjk/CMAUPv2.0_download_Targets.txt", show_col_types = FALSE)
+targets <- read_tsv("zwsjk/CMAUPv2.0_download_Targets.txt", show_col_types = FALSE)
 
 # Merge target information
 zicao_targets_with_info <- zicao_targets_data %>%

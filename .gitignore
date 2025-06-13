@@ -3,6 +3,10 @@ data/string_db/*.txt.gz
 data/string_db/*.txt
 data/raw_databases/*.txt
 
+# CMAUP v2.0 database files (large files)
+zwsjk/*.txt
+zwsjk/005_zip_of_transcriptomic_change/
+
 # R temporary files
 .Rhistory
 .RData

@@ -16,13 +16,18 @@ suppressMessages({
 
 # Set working directory to project root
 if(require(rstudioapi) && rstudioapi::isAvailable()) {
+  # Running in RStudio
   project_root <- file.path(dirname(dirname(dirname(rstudioapi::getActiveDocumentContext()$path))))
   setwd(project_root)
 } else {
-  # Fallback for command line execution
-  script_dir <- dirname(sys.frame(1)$ofile)
-  project_root <- file.path(dirname(dirname(script_dir)))
-  setwd(project_root)
+  # Running from command line - assume we're already in project root
+  # or set to a known location
+  if(basename(getwd()) == "R") {
+    setwd("../../")
+  } else if(basename(getwd()) == "scripts") {
+    setwd("../")
+  }
+  # If running from project root, do nothing
 }
 
 # Create output directories

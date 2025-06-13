@@ -16,9 +16,21 @@ suppressPackageStartupMessages({
   library(validate)
 })
 
-# Set working directory to project root (two levels up from scripts/R/)
-project_root <- file.path(dirname(dirname(dirname(rstudioapi::getActiveDocumentContext()$path))))
-setwd(project_root)
+# Set working directory to project root
+if(require(rstudioapi) && rstudioapi::isAvailable()) {
+  # Running in RStudio
+  project_root <- file.path(dirname(dirname(dirname(rstudioapi::getActiveDocumentContext()$path))))
+  setwd(project_root)
+} else {
+  # Running from command line - assume we're already in project root
+  # or set to a known location
+  if(basename(getwd()) == "R") {
+    setwd("../../")
+  } else if(basename(getwd()) == "scripts") {
+    setwd("../")
+  }
+  # If running from project root, do nothing
+}
 
 cat("=== Lithospermum erythrorhizon Network Pharmacology Analysis ===\n")
 cat("Start time:", as.character(Sys.time()), "\n\n")
@@ -31,12 +43,12 @@ cat("1. Setting up data file paths...\n")
 
 # CMAUP database file paths (relative to project root)
 data_files <- list(
-  plants = "../../zwsjk/CMAUPv2.0_download_Plants.txt",
-  ingredients = "../../zwsjk/CMAUPv2.0_download_Ingredients_onlyActive.txt", 
-  plant_ingredients = "../../zwsjk/CMAUPv2.0_download_Plant_Ingredient_Associations_onlyActiveIngredients.txt",
-  targets = "../../zwsjk/CMAUPv2.0_download_Targets.txt",
-  ingredient_targets = "../../zwsjk/CMAUPv2.0_download_Ingredient_Target_Associations_ActivityValues_References.txt",
-  admet = "../../zwsjk/CMAUPv2.0_download_Human_Oral_Bioavailability_information_of_Ingredients_All.txt"
+  plants = "zwsjk/CMAUPv2.0_download_Plants.txt",
+  ingredients = "zwsjk/CMAUPv2.0_download_Ingredients_onlyActive.txt", 
+  plant_ingredients = "zwsjk/CMAUPv2.0_download_Plant_Ingredient_Associations_onlyActiveIngredients.txt",
+  targets = "zwsjk/CMAUPv2.0_download_Targets.txt",
+  ingredient_targets = "zwsjk/CMAUPv2.0_download_Ingredient_Target_Associations_ActivityValues_References.txt",
+  admet = "zwsjk/CMAUPv2.0_download_Human_Oral_Bioavailability_information_of_Ingredients_All.txt"
 )
 
 # Check if all files exist
