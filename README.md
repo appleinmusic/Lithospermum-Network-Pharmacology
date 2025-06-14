@@ -20,18 +20,22 @@ This repository contains the complete computational pipeline for "Network Pharma
 git clone https://github.com/appleinmusic/Lithospermum-Network-Pharmacology.git
 cd Lithospermum_Network_Pharmacology_Reproducibility
 
-# 2. Run complete analysis (requires CMAUP data - see setup below)
+# 2. Download required databases (see setup section for details)
+# - CMAUP database files → zwsjk/ directory
+# - STRING database files → data/string_db/ directory
+
+# 3. Run complete analysis
 Rscript scripts/R/01_complete_data_loading.R        # Load and process CMAUP data
 Rscript scripts/R/05_ADMET_analysis.R               # ADMET screening (key result)
 Rscript scripts/R/02_complete_network_construction.R # Build PPI network  
 Rscript scripts/R/06_pathway_enrichment_analysis_clusterprofiler.R # Pathway analysis
 
-# 3. View key results
+# 4. View key results
 ls results/figures/                                  # Publication figures
 ls results/tables/                                   # Data tables
 ```
 
-> **⚠️ Note**: CMAUP database files are required but not included due to size. See setup instructions below.
+> **⚠️ Note**: Both CMAUP and STRING database files are required but not included due to size. See setup instructions below.
 
 ---
 
@@ -161,13 +165,44 @@ cd Lithospermum_Network_Pharmacology_Reproducibility
 - Email the corresponding author for pre-processed CMAUP files
 - Files will be provided in a compressed format
 
-### Step 3: Install R Dependencies
+### Step 3: Set Up STRING Database Files
+**Note**: STRING database files are required for protein-protein interaction network construction.
+
+**Download STRING v12.0 data:**
+1. Visit https://string-db.org/cgi/download (official STRING download page)
+2. Download the following human protein files (Homo sapiens - taxon ID: 9606):
+   ```
+   https://stringdb-downloads.org/download/protein.info.v12.0/9606.protein.info.v12.0.txt.gz
+   https://stringdb-downloads.org/download/protein.aliases.v12.0/9606.protein.aliases.v12.0.txt.gz
+   https://stringdb-downloads.org/download/protein.links.v12.0/9606.protein.links.v12.0.txt.gz
+   https://stringdb-downloads.org/download/protein.links.detailed.v12.0/9606.protein.links.detailed.v12.0.txt.gz
+   ```
+3. Place these files in the `data/string_db/` directory (keep them compressed as .gz files)
+
+**Quick download commands:**
+```bash
+# Create directory
+mkdir -p data/string_db
+
+# Download STRING database files
+cd data/string_db
+wget https://stringdb-downloads.org/download/protein.info.v12.0/9606.protein.info.v12.0.txt.gz
+wget https://stringdb-downloads.org/download/protein.aliases.v12.0/9606.protein.aliases.v12.0.txt.gz  
+wget https://stringdb-downloads.org/download/protein.links.v12.0/9606.protein.links.v12.0.txt.gz
+wget https://stringdb-downloads.org/download/protein.links.detailed.v12.0/9606.protein.links.detailed.v12.0.txt.gz
+cd ../..
+```
+
+**Citation requirement**: If you use STRING database, please cite:
+- Szklarczyk et al. (2023) STRING v12.0. Nucleic Acids Res. DOI: 10.1093/nar/gkac1000
+
+### Step 4: Install R Dependencies
 ```r
 # Run in R console
 source("install_dependencies.R")  # If available, or install manually as shown above
 ```
 
-### Step 4: Execute Analysis Pipeline
+### Step 5: Execute Analysis Pipeline
 ```bash
 # Navigate to project root
 cd /path/to/Lithospermum_Network_Pharmacology_Reproducibility
@@ -243,13 +278,19 @@ Error: cannot open file 'zwsjk/CMAUPv2.0_download_Plants.txt'
 ```
 **Solution**: Ensure all CMAUP files are placed in the `zwsjk/` directory
 
-**2. R Package Installation Issues**
+**2. STRING Database Files Missing**
+```
+Error: cannot open file 'data/string_db/9606.protein.info.v12.0.txt.gz'
+```
+**Solution**: Download STRING database files as described in Step 3 above and place them in `data/string_db/` directory
+
+**3. R Package Installation Issues**
 ```
 Error: package 'clusterProfiler' is not available
 ```
 **Solution**: Install Bioconductor packages using BiocManager as shown above
 
-**3. Memory Issues During Network Analysis**
+**4. Memory Issues During Network Analysis**
 ```
 Error: cannot allocate vector of size X Gb
 ```
@@ -258,7 +299,7 @@ Error: cannot allocate vector of size X Gb
 - Close other applications to free up RAM
 - Consider running on a machine with more memory
 
-**4. Working Directory Issues**
+**5. Working Directory Issues**
 ```
 Error: cannot find project root directory
 ```
