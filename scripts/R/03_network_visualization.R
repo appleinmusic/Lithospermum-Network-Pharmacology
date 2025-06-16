@@ -1,7 +1,7 @@
-# Lithospermum erythrorhizon Network Pharmacology Analysis - Network Visualization
-# PPI network visualization based on STRING database
+# 紫草网络药理学分析 - 网络可视化
+# 基于STRING数据库构建的PPI网络可视化
 
-# Load required packages
+# 加载必需的包
 suppressMessages({
   library(igraph)
   library(ggplot2)
@@ -10,35 +10,22 @@ suppressMessages({
   library(dplyr)
   library(RColorBrewer)
   library(gridExtra)
+  library(grid)
   library(corrplot)
   library(pheatmap)
+  library(reshape2)
+  library(scales)
 })
 
-# Set working directory to project root
-if(require(rstudioapi) && rstudioapi::isAvailable()) {
-  # Running in RStudio
-  project_root <- file.path(dirname(dirname(dirname(rstudioapi::getActiveDocumentContext()$path))))
-  setwd(project_root)
-} else {
-  # Running from command line - assume we're already in project root
-  # or set to a known location
-  if(basename(getwd()) == "R") {
-    setwd("../../")
-  } else if(basename(getwd()) == "scripts") {
-    setwd("../")
-  }
-  # If running from project root, do nothing
-}
-
-# Create output directories
+# 创建输出目录
 dir.create("results/figures", recursive = TRUE, showWarnings = FALSE)
 
-cat("Starting network visualization analysis...\n")
+cat("开始网络可视化分析...\n")
 
-# 1. Load network data
+# 1. 加载网络数据
 if (file.exists("results/network/ppi_network.rds")) {
   g <- readRDS("results/network/ppi_network.rds")
-  cat("Successfully loaded PPI network with", vcount(g), "nodes and", ecount(g), "edges\n")
+  cat("成功加载PPI网络，节点数:", vcount(g), "，边数:", ecount(g), "\n")
 } else {
   cat("错误: 未找到PPI网络文件，请先运行网络构建脚本\n")
   stop("缺少网络数据")
@@ -53,24 +40,102 @@ if (file.exists("results/tables/target_string_mapping.csv")) {
   target_mapping <- NULL
 }
 
-# 2. 网络基本可视化
+# 2. 网络基本可视化 - 修复颜色编码问题
 cat("正在生成基础网络图...\n")
 
-# 设置节点颜色（简化为单一类型，因为都是紫草靶点）
-node_colors <- c("紫草靶点" = "#FF6B6B", "其他" = "#95A5A6")
+# 设置明确的节点颜色区分：直接靶点（蓝色）和一阶互作蛋白（橙色）
+# 首先需要确定哪些是直接靶点，哪些是一阶互作蛋白
 
-# 确保所有节点都有node_type属性
-if (!"node_type" %in% vertex_attr_names(g)) {
-  V(g)$node_type <- "紫草靶点"
+# 设置明确的节点颜色区分：直接靶点（蓝色）和一阶互作蛋白（橙色）
+# 从CMAUP数据中获取直接靶点信息
+
+# 方法1: 从保存的靶点映射文件中获取直接靶点
+direct_targets <- c()
+if (file.exists("results/tables/target_string_mapping.csv")) {
+  target_mapping_data <- read.csv("results/tables/target_string_mapping.csv", stringsAsFactors = FALSE)
+  direct_targets <- target_mapping_data$target_name
+  cat("从映射文件获取直接靶点数:", length(direct_targets), "\n")
 }
 
+# 方法2: 如果没有映射文件，从CMAUP原始数据获取
+if (length(direct_targets) == 0) {
+  if (file.exists("zwsjk/CMAUPv2.0_download_Targets.txt")) {
+    cat("从CMAUP原始数据获取直接靶点...\n")
+    
+    # 加载植物数据
+    plants <- read.delim("zwsjk/CMAUPv2.0_download_Plants.txt", stringsAsFactors = FALSE)
+    lithospermum <- plants[grepl("lithospermum.*erythrorhizon", plants$Species_Name, ignore.case = TRUE), ]
+    
+    if (nrow(lithospermum) > 0) {
+      # 加载植物-成分关联
+      plant_ingredients <- read.delim("zwsjk/CMAUPv2.0_download_Plant_Ingredient_Associations_onlyActiveIngredients.txt", 
+                                     header = FALSE, stringsAsFactors = FALSE)
+      colnames(plant_ingredients) <- c("Plant_ID", "Ingredient_ID")
+      
+      # 获取紫草成分
+      zicao_ingredients <- plant_ingredients[plant_ingredients$Plant_ID == lithospermum$Plant_ID[1], ]
+      
+      # 加载成分-靶点关联
+      ingredient_targets <- read.delim("zwsjk/CMAUPv2.0_download_Ingredient_Target_Associations_ActivityValues_References.txt", 
+                                      stringsAsFactors = FALSE)
+      
+      # 获取紫草靶点
+      zicao_targets <- ingredient_targets[ingredient_targets$Ingredient_ID %in% zicao_ingredients$Ingredient_ID, ]
+      
+      # 加载靶点信息
+      targets_info <- read.delim("zwsjk/CMAUPv2.0_download_Targets.txt", stringsAsFactors = FALSE)
+      zicao_targets_with_info <- merge(zicao_targets, targets_info, by = "Target_ID")
+      
+      direct_targets <- unique(zicao_targets_with_info$Gene_Symbol)
+      direct_targets <- direct_targets[!is.na(direct_targets) & direct_targets != ""]
+      cat("从CMAUP数据获取直接靶点数:", length(direct_targets), "\n")
+    }
+  }
+}
+
+# 方法3: 如果仍然没有，使用网络中度数较高的节点作为直接靶点
+if (length(direct_targets) == 0) {
+  cat("使用网络拓扑特征确定直接靶点...\n")
+  degree_values <- degree(g)
+  # 使用度数前60%的节点作为直接靶点
+  threshold <- quantile(degree_values, 0.4)
+  direct_targets <- names(degree_values[degree_values >= threshold])
+}
+
+cat("最终确定的直接靶点数:", length(direct_targets), "\n")
+
+# 设置节点类型和颜色
+# 首先确保我们有有效的基因符号
+node_names <- names(V(g))
+
+# 检查网络中节点的基因符号属性
+if ("gene_symbol" %in% vertex_attr_names(g)) {
+  current_gene_symbols <- V(g)$gene_symbol
+} else if ("name" %in% vertex_attr_names(g)) {
+  current_gene_symbols <- V(g)$name
+} else {
+  current_gene_symbols <- node_names
+}
+
+# 确保current_gene_symbols不为空
+if (length(current_gene_symbols) == 0 || all(is.na(current_gene_symbols))) {
+  current_gene_symbols <- node_names
+}
+
+# 设置节点类型
+V(g)$node_type <- ifelse(current_gene_symbols %in% direct_targets, 
+                         "direct_target", "first_shell_interactor")
+
+# 明确的颜色区分：蓝色为直接靶点，橙色为一阶互作蛋白
+node_colors <- c("direct_target" = "#2E86AB", "first_shell_interactor" = "#F28E2B")
 V(g)$color <- node_colors[V(g)$node_type]
 
-# 设置节点大小 (基于度中心性)
-V(g)$size <- scales::rescale(degree(g), to = c(5, 20))
+# 设置节点大小更好地反映度中心性（更大的差异）
+degree_values <- degree(g)
+V(g)$size <- scales::rescale(degree_values, to = c(8, 25))
 
 # 设置边的权重
-E(g)$width <- scales::rescale(E(g)$combined_score, to = c(0.5, 3))
+E(g)$width <- scales::rescale(E(g)$combined_score, to = c(0.3, 2.5))
 
 # 设置节点标签（使用基因符号）
 if (!is.null(target_mapping)) {
@@ -78,51 +143,95 @@ if (!is.null(target_mapping)) {
   id_to_name <- setNames(target_mapping$target_name, target_mapping$string_id)
   
   # 为每个节点设置基因符号标签
-  V(g)$gene_symbol <- sapply(names(V(g)), function(x) {
+  gene_symbols <- sapply(node_names, function(x) {
     if (x %in% names(id_to_name)) {
       return(id_to_name[x])
     } else {
-      return(V(g)[x]$name_display)
+      # 如果没有映射，尝试从已有属性获取
+      return(x)  # 使用节点ID作为后备
     }
   })
+  
+  # 确保基因符号不为空
+  gene_symbols[is.na(gene_symbols) | gene_symbols == ""] <- node_names[is.na(gene_symbols) | gene_symbols == ""]
+  
+  # 设置为节点属性
+  V(g)$gene_symbol <- gene_symbols
+  V(g)$name_display <- gene_symbols
+  
+  # 关键步骤：直接替换节点的name属性为基因符号
+  # 这样igraph绘图时会优先使用基因符号而不是STRING ID
+  V(g)$name <- gene_symbols
+  
+  cat("基因符号映射完成，前5个示例:\n")
+  cat(head(paste(node_names, "->", gene_symbols), 5), sep = "\n")
+  cat("节点name属性已更新为基因符号\n")
+
 } else {
-  V(g)$gene_symbol <- V(g)$name_display
+  # 如果没有映射文件，使用节点名称
+  V(g)$gene_symbol <- node_names
+  V(g)$name_display <- node_names
+  V(g)$name <- node_names  # 也更新name属性
+  cat("警告：未找到靶点映射文件，使用节点ID作为标签\n")
 }
 
 # 基础网络布局
 set.seed(123)
 layout_fr <- layout_with_fr(g)
 
-# 生成网络图
-png("results/figures/Figure1_PPI_Network.png", width = 14, height = 12, units = "in", res = 300)
-par(mar = c(2, 2, 4, 6))
+# 调试：检查节点属性
+cat("检查节点属性...\n")
+cat("节点属性列表:", paste(vertex_attr_names(g), collapse = ", "), "\n")
+if ("gene_symbol" %in% vertex_attr_names(g)) {
+  cat("前5个基因符号:", head(V(g)$gene_symbol, 5), "\n")
+} else {
+  cat("警告：gene_symbol属性未找到\n")
+}
+
+# 生成网络图 - 使用更大的画布和更清晰的标签
+png("results/figures/Figure1_PPI_Network.png", width = 16, height = 14, units = "in", res = 300)
+par(mar = c(2, 2, 4, 8), bg = "white")
 plot(g, 
      layout = layout_fr,
      vertex.label = V(g)$gene_symbol,
-     vertex.label.cex = 0.8,
+     vertex.label.cex = 0.9,
      vertex.label.color = "black",
      vertex.label.font = 2,
      vertex.frame.color = "white",
      vertex.frame.width = 2,
-     edge.color = alpha("gray60", 0.7),
+     edge.color = alpha("gray50", 0.6),
      edge.curved = 0.1,
-     main = "Lithospermum erythrorhizon PPI Network\n(Based on STRING Database v12.0)",
-     sub = paste("Nodes:", vcount(g), "| Edges:", ecount(g), "| Confidence ≥ 400"),
-     cex.main = 1.5,
-     cex.sub = 1.2)
+     main = "Protein-Protein Interaction Network of L. erythrorhizon Targets\n(High-confidence interactions, STRING v12.0)",
+     sub = paste("Nodes:", vcount(g), "| Edges:", ecount(g), "| Combined Score ≥ 400"),
+     cex.main = 1.6,
+     cex.sub = 1.3)
 
-# 添加图例
+# 添加清晰的图例
 legend("topright", 
-       legend = c("Lithospermum Targets", paste("Network Density:", round(edge_density(g), 3))),
-       col = c(node_colors[1], "black"),
-       pch = c(19, NA),
-       cex = 1.0,
+       legend = c("Direct L. erythrorhizon targets", "First-shell interactors", 
+                 "", paste("Network density:", round(edge_density(g), 3)),
+                 paste("Average degree:", round(mean(degree(g)), 2))),
+       col = c(node_colors[1], node_colors[2], "white", "black", "black"),
+       pch = c(19, 19, NA, NA, NA),
+       pt.cex = c(2, 2, 1, 1, 1),
+       cex = 1.1,
        title = "Network Properties",
+       title.adj = 0,
+       bty = "n")
+
+# 添加度中心性说明
+legend("bottomright",
+       legend = c("Node size represents", "degree centrality", 
+                 paste("Range:", min(degree(g)), "-", max(degree(g)))),
+       pch = NA,
+       cex = 1.0,
+       title = "Size Encoding",
+       title.adj = 0,
        bty = "n")
 dev.off()
 
-# 3. 网络拓扑分析可视化
-cat("正在生成拓扑分析图...\n")
+# 3. 网络拓扑分析可视化 - 生成完整的四合一图
+cat("正在生成拓扑分析四合一图...\n")
 
 # 计算各种中心性指标
 degree_centrality <- degree(g)
@@ -142,44 +251,126 @@ topo_df <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# 度分布图
+# Panel A: 度分布直方图
 p1 <- ggplot(topo_df, aes(x = degree)) +
-  geom_histogram(bins = 15, fill = "#FF6B6B", alpha = 0.7, color = "white") +
-  labs(title = "Degree Distribution", 
+  geom_histogram(bins = 12, fill = "#2E86AB", alpha = 0.8, color = "white", linewidth = 0.5) +
+  labs(title = "Panel A: Degree Distribution", 
        x = "Degree", 
-       y = "Count",
-       subtitle = paste("Mean degree:", round(mean(degree_centrality), 2))) +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 14, face = "bold"))
+       y = "Count") +
+  theme_classic(base_size = 11) +
+  theme(
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    panel.background = element_rect(fill = "white", color = "black"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major = element_line(color = "#E5E5E5", linewidth = 0.3),
+    panel.grid.minor = element_blank()
+  ) +
+  annotate("text", x = max(topo_df$degree) * 0.7, y = max(table(cut(topo_df$degree, 12))) * 0.8,
+           label = paste("Mean:", round(mean(degree_centrality), 1)), 
+           size = 3.5, fontface = "bold", color = "#2E86AB")
 
-# 中心性散点图
-p2 <- ggplot(topo_df, aes(x = degree, y = betweenness, size = eigenvector)) +
-  geom_point(color = "#FF6B6B", alpha = 0.8) +
-  geom_text_repel(aes(label = ifelse(degree > quantile(degree, 0.8) | 
-                                   betweenness > quantile(betweenness, 0.8), 
-                                   gene_symbol, "")),
-                  size = 3, max.overlaps = 15) +
-  labs(title = "Centrality Analysis", 
+# Panel B: 中心性散点图（度 vs 介数中心性）
+# 识别top节点进行标注
+top_nodes <- topo_df[topo_df$degree > quantile(topo_df$degree, 0.75) | 
+                     topo_df$betweenness > quantile(topo_df$betweenness, 0.75), ]
+
+p2 <- ggplot(topo_df, aes(x = degree, y = betweenness)) +
+  geom_point(aes(color = node_type, size = eigenvector), alpha = 0.8) +
+  scale_color_manual(values = node_colors, name = "Node Type") +
+  geom_text_repel(data = top_nodes, aes(label = gene_symbol),
+                  size = 3, max.overlaps = 10, fontface = "bold") +
+  labs(title = "Panel B: Centrality Analysis", 
        x = "Degree Centrality", 
        y = "Betweenness Centrality",
-       size = "Eigenvector\nCentrality") +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 14, face = "bold"))
+       size = "Eigenvector") +
+  theme_classic(base_size = 11) +
+  theme(
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    panel.background = element_rect(fill = "white", color = "black"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major = element_line(color = "#E5E5E5", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"  # 在四合一图中隐藏图例
+  )
 
-# 中心性相关性热图数据
-centrality_cor <- cor(topo_df[, c("degree", "betweenness", "closeness", "eigenvector")])
+# Panel C: 中心性相关性热图
+centrality_matrix <- topo_df[, c("degree", "betweenness", "closeness", "eigenvector")]
+centrality_cor <- cor(centrality_matrix)
 
-png("results/figures/Figure2_Network_Topology.png", width = 16, height = 8, units = "in", res = 300)
-grid.arrange(p1, p2, ncol = 2)
-dev.off()
+# 创建热图数据
+cor_df <- reshape2::melt(centrality_cor)
+names(cor_df) <- c("Var1", "Var2", "value")
 
-# 中心性相关性热图
-png("results/figures/Figure3_Centrality_Correlation.png", width = 10, height = 8, units = "in", res = 300)
-corrplot(centrality_cor, method = "color", type = "upper", 
-         addCoef.col = "black", tl.col = "black", tl.srt = 45,
-         title = "Centrality Measures Correlation",
-         mar = c(0,0,2,0))
-dev.off()
+p3 <- ggplot(cor_df, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "#E74C3C", mid = "white", high = "#2E86AB", 
+                       midpoint = 0, limit = c(-1, 1), space = "Lab",
+                       name = "Correlation") +
+  geom_text(aes(label = round(value, 2)), color = "black", size = 3.5, fontface = "bold") +
+  labs(title = "Panel C: Centrality Correlation",
+       x = "", y = "") +
+  theme_classic(base_size = 11) +
+  theme(
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.background = element_rect(fill = "white", color = "black"),
+    plot.background = element_rect(fill = "white"),
+    legend.position = "none"  # 在四合一图中隐藏图例
+  )
+
+# Panel D: 核心蛋白连接图（Hub节点及其连接）
+# 识别Hub节点
+hub_threshold <- quantile(degree_centrality, 0.8)
+hub_nodes <- names(degree_centrality[degree_centrality >= hub_threshold])
+
+# 创建Hub节点数据框
+hub_df <- topo_df[topo_df$node %in% hub_nodes, ]
+hub_df <- hub_df[order(-hub_df$degree), ]  # 按度排序
+
+p4 <- ggplot(hub_df, aes(x = reorder(gene_symbol, degree), y = degree)) +
+  geom_col(aes(fill = node_type), alpha = 0.8, color = "black", linewidth = 0.3) +
+  scale_fill_manual(values = node_colors, name = "Node Type") +
+  geom_text(aes(label = degree), hjust = -0.1, size = 3, fontface = "bold") +
+  coord_flip() +
+  labs(title = "Panel D: Hub Protein Connectivity",
+       x = "Hub Proteins",
+       y = "Degree Centrality") +
+  theme_classic(base_size = 11) +
+  theme(
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    panel.background = element_rect(fill = "white", color = "black"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major.x = element_line(color = "#E5E5E5", linewidth = 0.3),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"  # 在四合一图中隐藏图例
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
+
+# 组合四个子图
+library(gridExtra)
+library(grid)
+
+combined_topology_plot <- grid.arrange(p1, p2, p3, p4, 
+                                       ncol = 2, nrow = 2,
+                                       top = textGrob("Network Topology Analysis and Hub Target Identification", 
+                                                    gp = gpar(fontsize = 16, fontface = "bold")))
+
+# 保存四合一图
+ggsave("results/figures/Figure2_Network_Topology.png", 
+       plot = combined_topology_plot, width = 14, height = 12, dpi = 300, units = "in")
+ggsave("results/figures/Figure2_Network_Topology.pdf", 
+       plot = combined_topology_plot, width = 14, height = 12, units = "in")
+
+# 保存单独的子图（备用）
+ggsave("results/figures/Figure2A_Degree_Distribution.png", 
+       plot = p1, width = 6, height = 5, dpi = 300, units = "in")
+ggsave("results/figures/Figure2B_Centrality_Scatter.png", 
+       plot = p2, width = 6, height = 5, dpi = 300, units = "in")
+ggsave("results/figures/Figure2C_Centrality_Correlation.png", 
+       plot = p3, width = 6, height = 5, dpi = 300, units = "in")
+ggsave("results/figures/Figure2D_Hub_Connectivity.png", 
+       plot = p4, width = 6, height = 5, dpi = 300, units = "in")
 
 # 4. 关键节点分析
 cat("正在进行关键节点分析...\n")
@@ -223,6 +414,9 @@ cat("正在进行功能模块分析...\n")
 communities <- cluster_louvain(g)
 V(g)$community <- membership(communities)
 
+# 确保基因符号属性在模块分析后仍然存在
+cat("模块分析后检查基因符号:", head(V(g)$gene_symbol, 3), "\n")
+
 cat("检测到", max(V(g)$community), "个功能模块\n")
 
 # 模块化系数
@@ -234,24 +428,127 @@ set.seed(123)
 module_colors <- rainbow(max(V(g)$community))
 V(g)$module_color <- module_colors[V(g)$community]
 
-png("results/figures/Figure4_Functional_Modules.png", width = 14, height = 12, units = "in", res = 300)
+png("results/figures/Figure4_Functional_Modules.png", width = 16, height = 14, units = "in", res = 300)
 par(mar = c(2, 2, 4, 6))
+
+# 使用更稳定的布局算法减少重叠
+set.seed(42)  # 确保可重复性
+layout_stable <- layout_with_fr(g, niter = 5000, coolexp = 1.5, repulserad = vcount(g)^2.5)
+
+# 计算节点大小基于度中心性，增加差异化
+node_sizes <- (degree(g) - min(degree(g))) / (max(degree(g)) - min(degree(g))) * 15 + 8
+
+# 创建直接的标签向量，确保使用基因符号
+node_labels <- V(g)$gene_symbol
+cat("准备绘制的标签(前5个):", head(node_labels, 5), "\n")
+
 plot(g, 
-     layout = layout_fr,
+     layout = layout_stable,
      vertex.color = V(g)$module_color,
-     vertex.label = V(g)$gene_symbol,
-     vertex.label.cex = 0.7,
-     vertex.label.color = "black",
-     vertex.label.font = 2,
-     vertex.size = 10,
+     vertex.label = node_labels,  # 直接使用标签向量
+     vertex.label.cex = 0.7,  # 稍微增大字体
+     vertex.label.color = "white",  # 使用白色标签
+     vertex.label.font = 2,  # 粗体
+     vertex.label.family = "sans",  # 使用无衬线字体
+     vertex.label.dist = 0,  # 标签居中
+     vertex.size = node_sizes,  # 基于度中心性的节点大小
+     vertex.frame.color = "black",  # 黑色边框增强对比
+     vertex.frame.width = 2,  # 增加边框宽度
+     edge.color = alpha("gray40", 0.6),  # 稍微深一点的边
+     edge.width = 0.8,
+     main = paste("Functional Modules (Modularity =", round(modularity_score, 3), ")"),
+     cex.main = 1.5)
+
+# 添加模块边界，使用更透明的颜色
+plot(communities, g, layout = layout_stable, add = TRUE, 
+     col = alpha(module_colors, 0.2), border = alpha(module_colors, 0.8), lwd = 2)
+
+# 添加图例
+legend("topright", 
+       legend = paste("Module", 1:max(V(g)$community)), 
+       fill = module_colors[1:max(V(g)$community)],
+       title = "Functional Modules",
+       cex = 0.8,
+       bg = "white")
+
+dev.off()
+
+# 生成无标签的清晰版本功能模块图
+png("results/figures/Figure4_Functional_Modules_Clean.png", width = 16, height = 14, units = "in", res = 300)
+par(mar = c(2, 2, 4, 8))
+
+plot(g, 
+     layout = layout_stable,
+     vertex.color = V(g)$module_color,
+     vertex.label = NA,  # 无标签版本
+     vertex.size = node_sizes,
      vertex.frame.color = "white",
-     edge.color = alpha("gray60", 0.6),
-     main = paste("Functional Modules\n(Modularity =", round(modularity_score, 3), ")"),
+     vertex.frame.width = 2,
+     edge.color = alpha("gray50", 0.4),
+     edge.width = 1,
+     main = paste("Functional Modules - Clean View (Modularity =", round(modularity_score, 3), ")"),
      cex.main = 1.5)
 
 # 添加模块边界
-plot(communities, g, layout = layout_fr, add = TRUE, 
-     col = alpha(module_colors, 0.3), border = module_colors)
+plot(communities, g, layout = layout_stable, add = TRUE, 
+     col = alpha(module_colors, 0.25), border = module_colors, lwd = 3)
+
+# 详细图例，包含每个模块的基因
+module_genes <- split(V(g)$gene_symbol, V(g)$community)
+legend_text <- sapply(1:length(module_genes), function(i) {
+  genes <- module_genes[[i]]
+  if(length(genes) <= 4) {
+    paste("Module", i, ":", paste(genes, collapse = ", "))
+  } else {
+    paste("Module", i, ":", paste(genes[1:3], collapse = ", "), "... (", length(genes), "genes)")
+  }
+})
+
+legend("topright", 
+       legend = legend_text,
+       fill = module_colors[1:length(module_genes)],
+       title = "Functional Modules",
+       cex = 0.7,
+       bg = "white",
+       border = "black")
+
+dev.off()
+
+# 创建一个更清晰的标签版本
+png("results/figures/Figure4_Functional_Modules_Enhanced.png", width = 16, height = 14, units = "in", res = 300)
+par(mar = c(2, 2, 4, 6))
+
+# 使用相同的布局
+plot(g, 
+     layout = layout_stable,
+     vertex.color = V(g)$module_color,
+     vertex.label = node_labels,
+     vertex.label.cex = 0.8,  # 更大的字体
+     vertex.label.color = "black",  # 黑色文字
+     vertex.label.font = 2,  # 粗体
+     vertex.label.family = "sans",
+     vertex.label.dist = 0,  # 居中
+     vertex.size = node_sizes + 3,  # 稍微大一点的节点
+     vertex.frame.color = "white",  # 白色边框作为背景
+     vertex.frame.width = 3,  # 更宽的白色边框
+     edge.color = alpha("gray30", 0.7),
+     edge.width = 1,
+     main = paste("Functional Modules - Enhanced Labels (Modularity =", round(modularity_score, 3), ")"),
+     cex.main = 1.5)
+
+# 添加模块边界
+plot(communities, g, layout = layout_stable, add = TRUE, 
+     col = alpha(module_colors, 0.15), border = alpha(module_colors, 0.9), lwd = 3)
+
+# 添加图例
+legend("topright", 
+       legend = paste("Module", 1:max(V(g)$community)), 
+       fill = module_colors[1:max(V(g)$community)],
+       title = "Functional Modules",
+       cex = 0.8,
+       bg = "white",
+       box.col = "black")
+
 dev.off()
 
 # 6. 生成分析摘要
@@ -297,4 +594,4 @@ cat("- Figure1_PPI_Network.png (主要PPI网络图)\n")
 cat("- Figure2_Network_Topology.png (拓扑分析图)\n")
 cat("- Figure3_Centrality_Correlation.png (中心性相关性)\n")
 cat("- Figure4_Functional_Modules.png (功能模块图)\n")
-cat("分析结果表格已保存到 results/tables/ 目录\n") 
+cat("分析结果表格已保存到 results/tables/ 目录\n")

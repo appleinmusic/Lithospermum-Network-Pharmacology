@@ -5,4 +5,12 @@ MW Mean (Da): 292.73
 MW Range (Da): 152.24-388.42
 LogP Mean: 3.477
 LogP Range: 1.15-4.98
+TPSA Mean (A^2): 72.3
+TPSA Range (A^2): 0-121.13
 ADMET Success Rate: 100%
+
+=== Four-Panel Figure Components ===
+Panel A: MW vs LogP scatter plot
+Panel B: TPSA distribution histogram
+Panel C: Lipinski rules compliance rates
+Panel D: DL vs OB correlation plot
