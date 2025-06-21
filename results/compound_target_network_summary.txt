@@ -1,5 +1,5 @@
 Compound-Target Interaction Network Summary (Figure 7)
-Date Generated: 2025-06-13
+Date Generated: 2025-06-21
 Total experimental interaction records: 77
 Total unique experimentally validated compound-target pairs: 48
 Total compounds in network: 12

@@ -2,14 +2,14 @@
 
 ## 📋 Project Overview
 
-This repository contains the complete computational pipeline for "Network Pharmacology Analysis Reveals the Multi-Target Mechanisms of Lithospermum erythrorhizon Against Inflammatory Diseases: A Comprehensive Study Based on CMAUP v2.0 and STRING Database Integration".
+This repository contains the complete computational pipeline for scientific research on "Network Pharmacology Analysis Reveals the Multi-Target Mechanisms of Lithospermum erythrorhizon Against Inflammatory Diseases: A Comprehensive Study Based on CMAUP v2.0 and STRING Database Integration".
 
 **Repository**: https://github.com/appleinmusic/Lithospermum-Network-Pharmacology  
-**Corresponding Paper**: Network Pharmacology Analysis Reveals the Multi-Target Mechanisms of Lithospermum erythrorhizon Against Inflammatory Diseases: A Comprehensive Study Based on CMAUP v2.0 and STRING Database Integration  
-**Status**: Manuscript under review  
-**Last Updated**: June 13, 2025
+**Research Topic**: Network Pharmacology Analysis Reveals the Multi-Target Mechanisms of Lithospermum erythrorhizon Against Inflammatory Diseases: A Comprehensive Study Based on CMAUP v2.0 and STRING Database Integration  
+**Status**: Research manuscript  
+**Last Updated**: June 21, 2025
 
-> **🎯 Quick Summary**: This computational pipeline reveals how traditional Chinese medicine Lithospermum erythrorhizon (紫草) works against inflammatory diseases through a sophisticated multi-target network involving TP53, PPARG, EGFR, and PTGS2 hub proteins. All 21 bioactive compounds showed excellent drug-like properties (100% ADMET success rate), supporting the herb's therapeutic potential.
+> **🎯 Research Summary**: This computational pipeline investigates how traditional Chinese medicine Lithospermum erythrorhizon (紫草) works against inflammatory diseases through a sophisticated multi-target network involving TP53, PPARG, EGFR, and PTGS2 hub proteins. Out of 21 bioactive compounds, 20 (95.2%) showed excellent drug-like properties and passed the ADMET screen. Shikonofuran C was excluded due to a predicted LogP value greater than 5.
 
 ---
 
@@ -24,14 +24,13 @@ cd Lithospermum_Network_Pharmacology_Reproducibility
 # - CMAUP database files → zwsjk/ directory
 # - STRING database files → data/string_db/ directory
 
-# 3. Run complete analysis
-Rscript scripts/R/01_complete_data_loading.R        # Load and process CMAUP data
-Rscript scripts/R/05_ADMET_analysis.R               # ADMET screening (key result)
-Rscript scripts/R/02_complete_network_construction.R # Build PPI network  
-Rscript scripts/R/06_pathway_enrichment_analysis_clusterprofiler.R # Pathway analysis
+# 3. Run complete analysis pipeline
+# This single script executes all R scripts (01 to 08) in order.
+# Ensure it has execute permissions (chmod +x scripts/R/run_all.sh)
+./scripts/R/run_all.sh
 
 # 4. View key results
-ls results/figures/                                  # Publication figures
+ls results/figures/                                  # Research figures
 ls results/tables/                                   # Data tables
 ```
 
@@ -65,7 +64,8 @@ install.packages(c(
   "stringr", "purrr", "lubridate",               # Utility packages
   "RColorBrewer", "viridis", "scales",           # Visualization enhancement
   "corrplot", "pheatmap", "VennDiagram",         # Statistical visualization
-  "rstudioapi"                                    # RStudio integration
+  "rstudioapi",                                   # RStudio integration
+  "rcdk", "rJava"                                 # ADMET analysis
 ))
 
 # Bioconductor packages
@@ -80,7 +80,9 @@ BiocManager::install(c(
 ))
 ```
 
-### Package Versions Used in Publication
+> **Java Dependency**: The `rJava` and `rcdk` packages require a properly configured Java Development Kit (JDK). Please ensure Java is installed and `JAVA_HOME` is set correctly before installing these packages. You can check with `R CMD javareconf` in your terminal.
+
+### Package Versions Used in Research
 ```r
 # Verified package versions for exact reproducibility
 sessionInfo()
@@ -97,6 +99,7 @@ sessionInfo()
 # - stringr_1.5.0
 # - visNetwork_2.1.2
 # - ggraph_2.1.0
+# - rcdk_3.5.0
 ```
 
 ---
@@ -106,7 +109,6 @@ sessionInfo()
 ```
 Lithospermum_Network_Pharmacology_Reproducibility/
 ├── README.md                     # This file
-├── PROJECT_STATUS_FINAL.md       # Project completion status
 ├── LICENSE                       # MIT License
 ├── 
 ├── data/                        # Input data directory
@@ -123,20 +125,20 @@ Lithospermum_Network_Pharmacology_Reproducibility/
 │
 ├── scripts/                    # Analysis scripts
 │   └── R/                     # R analysis scripts (01-08)
-│       ├── 01_complete_data_loading.R
-│       ├── 02_complete_network_construction.R
-│       ├── 03_network_visualization.R
-│       ├── 04_functional_modules_analysis.R
-│       ├── 05_ADMET_analysis.R
-│       ├── 06_pathway_enrichment_analysis_clusterprofiler.R
-│       ├── 07_compound_target_network.R
-│       └── 08_molecular_docking_analysis.R
+│       ├── 01_data_preparation.R
+│       ├── 02_ADMET_filtering.R
+│       ├── 03_network_construction.R
+│       ├── 04_network_analysis_and_viz.R
+│       ├── 05_module_analysis.R
+│       ├── 06_enrichment_analysis.R
+│       ├── 07_compound_target_viz.R
+│       ├── 08_docking_validation_viz.R
+│       └── run_all.sh
 │
 └── results/                   # Generated outputs
-    ├── figures/              # Publication-quality figures
+    ├── figures/              # High-quality research figures
     ├── tables/               # Data tables (CSV format)
-    ├── network/              # Network data files
-    └── transcriptomic/       # Additional analysis results
+    └── network/              # Network data files
 ```
 
 ---
@@ -207,15 +209,8 @@ source("install_dependencies.R")  # If available, or install manually as shown a
 # Navigate to project root
 cd /path/to/Lithospermum_Network_Pharmacology_Reproducibility
 
-# Run complete analysis pipeline (sequential execution)
-Rscript scripts/R/01_complete_data_loading.R
-Rscript scripts/R/02_complete_network_construction.R  
-Rscript scripts/R/03_network_visualization.R
-Rscript scripts/R/04_functional_modules_analysis.R
-Rscript scripts/R/05_ADMET_analysis.R
-Rscript scripts/R/06_pathway_enrichment_analysis_clusterprofiler.R
-Rscript scripts/R/07_compound_target_network.R
-Rscript scripts/R/08_molecular_docking_analysis.R
+# Run complete analysis pipeline (single command)
+./scripts/R/run_all.sh
 ```
 
 **Alternative: RStudio Execution**
@@ -228,7 +223,7 @@ Rscript scripts/R/08_molecular_docking_analysis.R
 ## 📊 Expected Outputs
 
 ### Key Research Findings
-- **21 ADMET-filtered compounds** from L. erythrorhizon (100% success rate)
+- **20 ADMET-filtered compounds** from L. erythrorhizon (95.2% success rate)
 - **32 protein targets** with experimental validation
 - **48 compound-target interactions** with bioactivity data
 - **High-confidence PPI network** (39 nodes, 278 edges, density 0.375)
@@ -257,13 +252,14 @@ After successful execution, the following files should be created:
 - `results/go_mf_enrichment_clusterprofiler.csv` - GO Molecular Function enrichment
 - `results/kegg_enrichment_clusterprofiler_full.csv` - Complete KEGG pathway results
 
-**Publication Figures**
+**Research Figures**
 - `results/figures/Figure1_PPI_Network.png` - Main PPI network visualization
-- `results/figures/Figure2_Network_Topology.png` - Network topology analysis
-- `results/figures/Figure3_Centrality_Correlation.png` - Centrality measures correlation
-- `results/figures/Figure4_Functional_Modules.png` - Functional module visualization
-- `results/figures/Figure5_ADMET_Properties.png` - ADMET properties radar plots
+- `results/figures/Figure2_Network_Topology.png` - Network topology analysis (4-panel figure)
+- `results/figures/Figure2C_Centrality_Correlation.png` - Centrality measures correlation
+- `results/figures/Figure4_Functional_Modules_Faceted.png` - Functional module visualization
+- `results/figures/Figure5_ADMET_Properties.png` - ADMET properties analysis
 - `results/figures/Figure6_Lipinski_Analysis.png` - Drug-likeness analysis
+- `results/figures/Figure7_Top_Compounds.png` - Top compounds analysis
 - `results/figures/Figure7_Compound_Target_Network.png` - Compound-target network
 
 ---
@@ -358,12 +354,12 @@ Each script includes quality control checks:
 - **Technical Support**: [技术支持邮箱]
 
 ### Citation
-If you use this code or data, please cite:
+If you use this code or data in your research, please cite:
 ```
-[待发表论文完整引用信息]
+[Research manuscript citation information]
 Network Pharmacology Analysis Reveals the Multi-Target Mechanisms of Lithospermum erythrorhizon 
 Against Inflammatory Diseases: A Comprehensive Study Based on CMAUP v2.0 and STRING Database Integration.
-[期刊名称]. [年份]; [卷号]([期号]): [页码]. DOI: [DOI号]
+[Journal Name]. [Year]; [Volume]([Issue]): [Pages]. DOI: [DOI]
 ```
 
 ### Supplementary Data Citation
@@ -384,7 +380,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📝 Version History
 
-- **v1.0.0** (June 13, 2025): Complete analysis pipeline with validated results
+- **v1.0.0** (June 21, 2025): Complete analysis pipeline with validated results and full reproducibility
 
 ---
 
@@ -397,7 +393,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Last Updated**: June 13, 2025  
-**Maintained by**: 紫草网络药理学研究团队  
+**Last Updated**: June 21, 2025  
+**Maintained by**: Lithospermum Network Pharmacology Research Team  
 **Repository**: https://github.com/appleinmusic/Lithospermum-Network-Pharmacology  
-**Status**: ✅ Production Ready - All analysis scripts validated and results verified
+**Status**: ✅ Research Ready - All analysis scripts validated and results verified

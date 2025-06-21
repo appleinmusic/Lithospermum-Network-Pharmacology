@@ -14,12 +14,7 @@ suppressPackageStartupMessages({
   library(stringr)
 })
 
-# Set working directory to project root for relative paths
-if(require(rstudioapi) && rstudioapi::isAvailable()) {
-  project_root <- file.path(dirname(dirname(dirname(rstudioapi::getActiveDocumentContext()$path))))
-  setwd(project_root)
-}
-
+# Set working directory and create output directory
 output_dir <- "results/figures"
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)

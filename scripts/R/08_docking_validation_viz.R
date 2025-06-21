@@ -1,4 +1,4 @@
-# Complete Molecular Docking Analysis Script (Data Generation + Advanced Visualization)
+# 完整分子对接分析脚本 (数据生成 + 高级可视化)
 
 # Load required packages
 suppressMessages({
@@ -9,26 +9,21 @@ suppressMessages({
   library(ggrepel)
 })
 
-# Set working directory to project root for relative paths
-if(require(rstudioapi) && rstudioapi::isAvailable()) {
-  project_root <- file.path(dirname(dirname(dirname(rstudioapi::getActiveDocumentContext()$path))))
-  setwd(project_root)
-}
-
+# 设置工作目录和数据路径
 data_dir <- "data/processed/"
 results_dir <- "results/"
 figures_dir <- "results/figures/"
 
-# Ensure result directories exist
+# 确保结果目录存在
 if (!dir.exists(results_dir)) dir.create(results_dir, recursive = TRUE)
 if (!dir.exists(figures_dir)) dir.create(figures_dir, recursive = TRUE)
 
-cat("=== Complete Molecular Docking Analysis Started ===\n")
+cat("=== 完整分子对接分析开始 ===\n")
 
-# ============ Part 1: Data Generation ============
-cat("\n=== Part 1: Generate Molecular Docking Data ===\n")
+# ============ 第一部分：数据生成 ============
+cat("\n=== 第一部分：生成分子对接数据 ===\n")
 
-# 1. Define key compounds and core targets (based on real literature data)
+# 1. 定义关键化合物和核心靶点 (基于真实文献数据)
 key_compounds <- data.frame(
   compound_name = c("Shikonin", "Alkannin", "Celecoxib"),
   smiles = c("CC(C)=CCOC1=C(C(=O)C2=C(C1=O)C(=C(C=C2)O)O)O",
@@ -49,12 +44,12 @@ hub_targets <- data.frame(
   stringsAsFactors = FALSE
 )
 
-cat("Key compounds count:", nrow(key_compounds), "\n")
-cat("Core targets count:", nrow(hub_targets), "\n")
+cat("关键化合物数量:", nrow(key_compounds), "\n")
+cat("核心靶点数量:", nrow(hub_targets), "\n")
 
-# 2. Literature-based molecular docking data analysis
+# 2. 基于文献报道的分子对接数据分析
 analyze_literature_docking_data <- function(compounds, targets) {
-  # Based on real published literature molecular docking data from Motohashi et al. 2018
+  # 基于Motohashi等2018年真实发表文献的分子对接数据
   literature_data <- rbind(
     data.frame(
       compound = "Shikonin",
@@ -82,12 +77,12 @@ analyze_literature_docking_data <- function(compounds, targets) {
     )
   )
   
-  # Calculate binding efficiency index
+  # 计算结合效率指数
   literature_data$bei <- abs(literature_data$binding_affinity) / key_compounds$molecular_weight[
     match(literature_data$compound, key_compounds$compound_name)
   ] * 1000
   
-  # Classify binding affinity
+  # 分类结合亲和力
   literature_data$affinity_category <- case_when(
     literature_data$binding_affinity <= -8.0 ~ "Very Strong",
     literature_data$binding_affinity <= -7.0 ~ "Strong", 
@@ -95,37 +90,37 @@ analyze_literature_docking_data <- function(compounds, targets) {
     TRUE ~ "Weak"
   )
   
-  # Add data quality markers
+  # 添加数据质量标记
   literature_data$data_source <- "Literature"
   literature_data$validation_status <- "Published"
   
   return(literature_data)
 }
 
-# 3. Generate molecular docking data
-cat("Generating molecular docking data...\n")
+# 3. 生成分子对接数据
+cat("正在生成分子对接数据...\n")
 docking_results <- analyze_literature_docking_data(key_compounds, hub_targets)
 
-cat("Docking results statistics:\n")
+cat("对接结果统计:\n")
 print(summary(docking_results$binding_affinity))
 
-# 4. Save data and confirm write completion
-cat("Saving molecular docking data...\n")
+# 4. 保存数据并确认写入完成
+cat("正在保存分子对接数据...\n")
 write.csv(docking_results, paste0(results_dir, "molecular_docking_results.csv"), row.names = FALSE)
 
-# **Critical**: Wait for file write completion
-Sys.sleep(1)  # Wait 1 second to ensure file write
+# **关键**：等待文件写入完成
+Sys.sleep(1)  # 等待1秒确保文件写入
 if (!file.exists(paste0(results_dir, "molecular_docking_results.csv"))) {
-  stop("Data file was not successfully saved, stopping execution")
+  stop("数据文件未成功保存，停止执行")
 }
-cat("✓ Molecular docking data successfully saved\n")
+cat("✓ 分子对接数据已成功保存\n")
 
-# ============ Part 2: Basic Visualization ============
-cat("\n=== Part 2: Generate Basic Analysis Charts ===\n")
+# ============ 第二部分：基础可视化 ============
+cat("\n=== 第二部分：生成基础分析图表 ===\n")
 
-# 5. Create basic docking result charts
+# 5. 创建基础对接结果图表
 create_basic_docking_plots <- function(docking_data) {
-  # Basic bar chart
+  # 基础条形图
   p1 <- ggplot(docking_data, aes(x = compound, y = abs(binding_affinity))) +
     geom_col(aes(fill = compound), alpha = 0.8, color = "black") +
     geom_text(aes(label = paste0(binding_affinity, " kcal/mol")), 
@@ -148,21 +143,21 @@ create_basic_docking_plots <- function(docking_data) {
   ggsave(paste0(results_dir, "molecular_docking_heatmap.pdf"), 
          plot = p1, width = 10, height = 8, dpi = 300)
   
-  cat("✓ Basic molecular docking charts saved\n")
+  cat("✓ 基础分子对接图表已保存\n")
   return(p1)
 }
 
 basic_plot <- create_basic_docking_plots(docking_results)
 
-# ============ Part 3: Wait and Confirm Data Integrity ============
-cat("\n=== Part 3: Verify Data Integrity ===\n")
+# ============ 第三部分：等待并确认数据完整性 ============
+cat("\n=== 第三部分：验证数据完整性 ===\n")
 
-# Re-read data file to verify integrity
+# 重新读取数据文件验证完整性
 verify_data <- function() {
   if (file.exists(paste0(results_dir, "molecular_docking_results.csv"))) {
     test_data <- read.csv(paste0(results_dir, "molecular_docking_results.csv"), stringsAsFactors = FALSE)
     if (nrow(test_data) == 3 && ncol(test_data) >= 5) {
-      cat("✓ Data file verification passed, contains", nrow(test_data), "rows of data\n")
+      cat("✓ 数据文件验证通过，包含", nrow(test_data), "行数据\n")
       return(TRUE)
     }
   }
@@ -170,17 +165,17 @@ verify_data <- function() {
 }
 
 if (!verify_data()) {
-  stop("Data verification failed, stopping advanced visualization")
+  stop("数据验证失败，停止高级可视化")
 }
 
-# ============ Part 4: Advanced Visualization ============
-cat("\n=== Part 4: Generate Advanced Visualization Charts ===\n")
+# ============ 第四部分：高级可视化 ============
+cat("\n=== 第四部分：生成高级可视化图表 ===\n")
 
-# Reload data for advanced visualization
+# 重新加载数据用于高级可视化
 docking_data <- read.csv(paste0(results_dir, "molecular_docking_results.csv"), stringsAsFactors = FALSE)
-cat("Successfully loaded", nrow(docking_data), "docking data for advanced visualization\n")
+cat("成功加载", nrow(docking_data), "条对接数据用于高级可视化\n")
 
-# Define unified advanced theme
+# 定义统一的高级主题
 theme_advanced <- function() {
   theme_minimal() +
   theme(
@@ -201,7 +196,7 @@ theme_advanced <- function() {
   )
 }
 
-# 6. Create advanced heatmap
+# 6. 创建高级热图
 create_advanced_heatmap <- function() {
   heat_data <- docking_data %>%
     mutate(
@@ -251,11 +246,11 @@ create_advanced_heatmap <- function() {
   ggsave(paste0(figures_dir, "advanced_docking_heatmap.png"), 
          plot = p, width = 12, height = 8, dpi = 300, bg = "white")
   
-  cat("✓ Advanced heatmap saved\n")
+  cat("✓ 高级热图已保存\n")
   return(p)
 }
 
-# 7. Create scatter bubble plot
+# 7. 创建散点气泡图
 create_bubble_plot <- function() {
   mw_data <- data.frame(
     compound = c("Shikonin", "Alkannin", "Celecoxib"),
@@ -310,11 +305,11 @@ create_bubble_plot <- function() {
   ggsave(paste0(figures_dir, "docking_bubble_plot.png"), 
          plot = p, width = 12, height = 10, dpi = 300, bg = "white")
   
-  cat("✓ Scatter bubble plot saved\n")
+  cat("✓ 散点气泡图已保存\n")
   return(p)
 }
 
-# 8. Create forest plot
+# 8. 创建森林图
 create_forest_plot <- function() {
   forest_data <- docking_data %>%
     mutate(
@@ -364,12 +359,12 @@ create_forest_plot <- function() {
   ggsave(paste0(figures_dir, "docking_forest_plot.png"), 
          plot = p, width = 16, height = 8, dpi = 300, bg = "white")
   
-  cat("✓ Forest plot saved\n")
+  cat("✓ 森林图已保存\n")
   return(p)
 }
 
-# 9. Execute All Advanced Visualizations
-cat("Starting advanced molecular docking chart generation...\n")
+# 9. 执行所有高级可视化
+cat("开始生成高级分子对接图表...\n")
 
 heatmap_plot <- create_advanced_heatmap()
 bubble_plot <- create_bubble_plot()

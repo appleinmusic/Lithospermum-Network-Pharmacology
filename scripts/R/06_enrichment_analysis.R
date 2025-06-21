@@ -1,10 +1,10 @@
 # KEGG Pathway Enrichment Analysis using clusterProfiler
 # Updated version to match manuscript methodology
 
-cat("=== KEGG Pathway Enrichment Analysis (using clusterProfiler) ===\n")
-cat("Start time:", as.character(Sys.time()), "\n")
+cat("=== KEGG通路富集分析（使用clusterProfiler）===\n")
+cat("开始时间:", as.character(Sys.time()), "\n")
 
-# Load required packages
+# 加载必需包
 suppressPackageStartupMessages({
   library(clusterProfiler)
   library(org.Hs.eg.db)
@@ -16,34 +16,29 @@ suppressPackageStartupMessages({
   library(stringr)
 })
 
-# Set working directory to project root for relative paths
-if(require(rstudioapi) && rstudioapi::isAvailable()) {
-  project_root <- file.path(dirname(dirname(dirname(rstudioapi::getActiveDocumentContext()$path))))
-  setwd(project_root)
-}
-
+# 设置目录路径
 output_dir <- "results/figures"
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-# 1. Load target data
+# 1. 加载靶点数据
 targets_file <- "results/tables/target_string_mapping.csv"
 if (file.exists(targets_file)) {
   targets_data <- readr::read_csv(targets_file, show_col_types = FALSE)
   gene_symbols <- unique(targets_data$target_name)
-  cat("✓ Loaded target genes:", length(gene_symbols), "\n")
+  cat("✓ 载入靶点基因数:", length(gene_symbols), "\n")
 } else {
-  stop("Target data file does not exist, please run 02_complete_network_construction.R first")
+  stop("靶点数据文件不存在，请先运行02_complete_network_construction.R脚本")
 }
 
-# 2. Convert gene symbols to ENTREZ ID
-cat("Converting gene symbols to ENTREZ ID...\n")
+# 2. 基因符号转换为ENTREZ ID
+cat("正在转换基因符号为ENTREZ ID...\n")
 gene_entrez <- bitr(gene_symbols, 
                    fromType = "SYMBOL",
                    toType = "ENTREZID", 
                    OrgDb = org.Hs.eg.db)
 
 if (nrow(gene_entrez) == 0) {
-  stop("Unable to convert gene symbols to ENTREZ ID")
+  stop("无法转换基因符号为ENTREZ ID")
 }
 
 cat("✓ 成功转换", nrow(gene_entrez), "个基因的ENTREZ ID\n")
