@@ -223,14 +223,12 @@ cd /path/to/Lithospermum_Network_Pharmacology_Reproducibility
 ## 📊 Expected Outputs
 
 ### Key Research Findings
-- **20 ADMET-filtered compounds** from L. erythrorhizon (95.2% success rate)
-- **32 protein targets** with experimental validation
-- **48 compound-target interactions** with bioactivity data
-- **High-confidence PPI network** (39 nodes, 278 edges, density 0.375)
-- **4 functional modules** identified via Louvain clustering (Q = 0.42)
-- **Hub proteins identified**: TP53 (degree: 48), PPARG (degree: 38), EGFR (degree: 36), PTGS2 (degree: 32)
-- **Pathway enrichment**: 10 significant KEGG pathways, extensive GO enrichment
-- **Disease relevance**: High overlap with inflammatory disease genes (p < 0.001)
+- **Compound Screening**: From an initial 21 compounds, 20 passed ADMET screening. This set was further filtered to **12 core active compounds** that have experimentally validated protein targets in the CMAUP database, ensuring all subsequent analyses are based on established interactions.
+- **32 unique protein targets** identified for the 12 core compounds.
+- **High-confidence PPI network**: Constructed with **32 nodes and 156 edges** (network density: 0.321), indicating a highly interconnected functional cluster.
+- **7 hub proteins identified**: EGFR, PTGS2, CYP2C9, CYP3A4, ALDH1A1, CYP1A2, and HIF1A, representing the most influential nodes in the network.
+- **3 functional modules** identified via Louvain clustering, highlighting distinct clusters for metabolism, signaling, and inflammation.
+- **Key Pathway Enrichment**: The "Arachidonic acid metabolism" pathway was identified as the most significant, directly linking the herb's targets to core inflammatory processes.
 
 ### Generated Files
 After successful execution, the following files should be created:
