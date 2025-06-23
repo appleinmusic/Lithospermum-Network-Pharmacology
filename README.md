@@ -7,9 +7,9 @@ This repository contains the complete computational pipeline for scientific rese
 **Repository**: https://github.com/appleinmusic/Lithospermum-Network-Pharmacology  
 **Research Topic**: Network Pharmacology Analysis Reveals the Multi-Target Mechanisms of Lithospermum erythrorhizon Against Inflammatory Diseases: A Comprehensive Study Based on CMAUP v2.0 and STRING Database Integration  
 **Status**: Research manuscript  
-**Last Updated**: June 21, 2025
+**Last Updated**: June 23, 2025
 
-> **🎯 Research Summary**: This computational pipeline investigates how traditional Chinese medicine Lithospermum erythrorhizon (紫草) works against inflammatory diseases through a sophisticated multi-target network involving TP53, PPARG, EGFR, and PTGS2 hub proteins. Out of 21 bioactive compounds, 20 (95.2%) showed excellent drug-like properties and passed the ADMET screen. Shikonofuran C was excluded due to a predicted LogP value greater than 5.
+> **🎯 Research Summary**: This computational pipeline investigates how traditional Chinese medicine Lithospermum erythrorhizon (紫草) works against inflammatory diseases. The study identifies a core network of interacting proteins that are targets of the herb's active compounds. Out of 21 initial bioactive compounds, **20 (95.2%)** passed a rigorous ADMET (drug-likeness) screen. These 20 compounds were associated with 32 unique human proteins, which, after filtering for high-confidence interactions, formed a core functional network of **28 proteins and 130 interactions**. This network's key hubs (like EGFR and PTGS2) and enriched pathways reveal a deep connection to the inflammation-metabolism axis.
 
 ---
 
@@ -209,6 +209,9 @@ source("install_dependencies.R")  # If available, or install manually as shown a
 # Navigate to project root
 cd /path/to/Lithospermum_Network_Pharmacology_Reproducibility
 
+# Grant execute permission to the run script
+chmod +x scripts/R/run_all.sh
+
 # Run complete analysis pipeline (single command)
 ./scripts/R/run_all.sh
 ```
@@ -223,12 +226,12 @@ cd /path/to/Lithospermum_Network_Pharmacology_Reproducibility
 ## 📊 Expected Outputs
 
 ### Key Research Findings
-- **Compound Screening**: From an initial 21 compounds, 20 passed ADMET screening. This set was further filtered to **12 core active compounds** that have experimentally validated protein targets in the CMAUP database, ensuring all subsequent analyses are based on established interactions.
-- **32 unique protein targets** identified for the 12 core compounds.
-- **High-confidence PPI network**: Constructed with **32 nodes and 156 edges** (network density: 0.321), indicating a highly interconnected functional cluster.
-- **7 hub proteins identified**: EGFR, PTGS2, CYP2C9, CYP3A4, ALDH1A1, CYP1A2, and HIF1A, representing the most influential nodes in the network.
-- **3 functional modules** identified via Louvain clustering, highlighting distinct clusters for metabolism, signaling, and inflammation.
-- **Key Pathway Enrichment**: The "Arachidonic acid metabolism" pathway was identified as the most significant, directly linking the herb's targets to core inflammatory processes.
+- **Compound Screening**: From an initial 21 compounds, **20** passed the ADMET screening based on Lipinski's Rule of Five.
+- **Target Identification**: These 20 compounds are associated with **32 unique human protein targets** according to the CMAUP v2.0 database.
+- **Core PPI Network Construction**: While 32 targets were identified, only 28 of them formed a connected network with high-confidence interactions (STRING combined score > 400). The final, true network consists of **28 nodes and 130 edges**.
+- **Hub Proteins**: Analysis of the 28-node network identified key hub proteins, including **EGFR, PTGS2, CYP2C9, and HIF1A**, representing the most influential nodes.
+- **Functional Modules**: The network was partitioned into **5 functional modules**, indicating distinct clusters of proteins with related biological functions.
+- **Key Pathway Enrichment**: Functional analysis of the network nodes revealed significant enrichment in pathways critical to inflammation and metabolism, such as the **'PI3K-Akt signaling pathway'** and various metabolic regulation pathways.
 
 ### Generated Files
 After successful execution, the following files should be created:
@@ -391,7 +394,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Last Updated**: June 21, 2025  
+**Last Updated**: June 23, 2025  
 **Maintained by**: Lithospermum Network Pharmacology Research Team  
 **Repository**: https://github.com/appleinmusic/Lithospermum-Network-Pharmacology  
 **Status**: ✅ Research Ready - All analysis scripts validated and results verified
