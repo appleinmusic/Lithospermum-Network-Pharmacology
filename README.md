@@ -9,7 +9,15 @@ This repository contains the complete computational pipeline for scientific rese
 **Status**: Research manuscript  
 **Last Updated**: June 23, 2025
 
-> **🎯 Research Summary**: This computational pipeline investigates how traditional Chinese medicine Lithospermum erythrorhizon (紫草) works against inflammatory diseases. The study identifies a core network of interacting proteins that are targets of the herb's active compounds. Out of 21 initial bioactive compounds, **20 (95.2%)** passed a rigorous ADMET (drug-likeness) screen. These 20 compounds were associated with 32 unique human proteins, which, after filtering for high-confidence interactions, formed a core functional network of **28 proteins and 130 interactions**. This network's key hubs (like EGFR and PTGS2) and enriched pathways reveal a deep connection to the inflammation-metabolism axis.
+> **🎯 Research Summary**: This computational pipeline provides a transparent and reproducible analysis of how traditional Chinese medicine Lithospermum erythrorhizon (紫草) works against inflammatory diseases. The study identifies a core functional network of interacting proteins that are targets of the herb's active compounds.
+> 
+> **Methodological Flow & Key Findings:**
+> 1.  **Compound Screening:** Out of 21 initial bioactive compounds, **20 (95.2%)** passed a rigorous ADMET (drug-likeness) screen.
+> 2.  **Target Identification:** These 20 core compounds were associated with 32 unique human protein targets.
+> 3.  **Network Construction:** A high-confidence interaction network was built from these 32 targets, initially resulting in a graph containing 28 proteins with at least one connection.
+> 4.  **Core Functional Network Extraction (LCC):** To ensure scientific rigor and focus on the most functionally relevant protein cluster, we extracted the **Largest Connected Component (LCC)**. This standard network analysis step yielded the final core functional network of **26 proteins and 128 interactions**.
+> 
+> This refined core network, which excludes isolated nodes (THRB and TSHR), became the basis for all downstream analyses. Its key hubs (like EGFR and PTGS2) and enriched pathways reveal a deep connection to the inflammation-metabolism axis.
 
 ---
 

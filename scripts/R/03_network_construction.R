@@ -186,77 +186,114 @@ map_to_string_id <- function(target_names, aliases_df, protein_info_df) {
 target_mapping <- map_to_string_id(all_targets, protein_aliases, protein_info)
 cat("成功映射靶点数:", nrow(target_mapping), "/", length(all_targets), "\n")
 
+# --- 关键修正：报告并处理未映射的靶点 ---
+unmapped_targets <- setdiff(all_targets, target_mapping$target_name)
+if (length(unmapped_targets) > 0) {
+    cat("警告：以下", length(unmapped_targets), "个靶点未能映射到STRING ID，将不会包含在网络中:\n")
+    for (target in unmapped_targets) {
+        cat("  - ", target, "\n")
+    }
+}
+
 # 显示成功映射的靶点
 if (nrow(target_mapping) > 0) {
   cat("成功映射的靶点:\n")
   print(target_mapping)
+  
+  # 保存映射结果
+  write_csv(target_mapping, "results/tables/target_string_mapping.csv")
+  cat("✓ 靶点映射结果已保存到 'results/tables/target_string_mapping.csv'\n")
 }
 
 # 5. 构建PPI网络
 cat("正在构建蛋白质相互作用网络...\n")
+string_ids <- unique(target_mapping$string_id)
 
-if (nrow(target_mapping) > 0) {
-  # 获取映射靶点的相互作用
-  target_string_ids <- target_mapping$string_id
+# 筛选相互作用
+ppi_interactions <- high_quality_links %>%
+  filter(protein1 %in% string_ids & protein2 %in% string_ids)
+
+cat("目标蛋白质间相互作用数:", nrow(ppi_interactions), "\n")
+
+# 创建igraph对象
+ppi_network <- graph_from_data_frame(
+  d = ppi_interactions[, c("protein1", "protein2")],
+  directed = FALSE
+)
+
+# ==============================================================================
+# 6. 【科学性修正】提取最大连通分量 (LCC)
+#    这是确保网络分析稳健性和聚焦核心功能的标准步骤。
+# ==============================================================================
+cat("\n正在提取最大连通分量 (LCC)...\n")
+components <- decompose(ppi_network)
+if (length(components) > 0) {
+  # 找到最大的连通分量
+  largest_comp_index <- which.max(sapply(components, vcount))
+  core_network <- components[[largest_comp_index]]
   
-  # 筛选目标蛋白质之间的相互作用
-  target_interactions <- high_quality_links[
-    high_quality_links$protein1 %in% target_string_ids & 
-    high_quality_links$protein2 %in% target_string_ids, 
-  ]
+  # 报告提取结果
+  original_node_count <- vcount(ppi_network)
+  core_node_count <- vcount(core_network)
   
-  cat("目标蛋白质间相互作用数:", nrow(target_interactions), "\n")
-  
-  if (nrow(target_interactions) > 0) {
-    # 创建网络图
-    g <- graph_from_data_frame(
-      target_interactions[, c("protein1", "protein2", "combined_score")],
-      directed = FALSE
-    )
+  if (original_node_count > core_node_count) {
+    cat("信息：从", original_node_count, "个节点的网络中提取出", core_node_count, "个节点的核心网络。\n")
     
-    # 添加节点属性
-    # 映射STRING ID回靶点名称
-    id_to_name <- setNames(target_mapping$target_name, target_mapping$string_id)
+    # 识别并报告被排除的节点
+    original_nodes <- V(ppi_network)$name
+    core_nodes <- V(core_network)$name
+    excluded_nodes_ids <- setdiff(original_nodes, core_nodes)
     
-    V(g)$name_display <- ifelse(names(V(g)) %in% names(id_to_name), 
-                               id_to_name[names(V(g))], 
-                               names(V(g)))
+    # 将 STRING ID 转换回基因符号以便阅读
+    excluded_nodes_df <- protein_info %>%
+      filter(`#string_protein_id` %in% excluded_nodes_ids) %>%
+      select(preferred_name)
     
-    # 标记节点类型
-    V(g)$node_type <- "紫草靶点"
+    excluded_node_names <- excluded_nodes_df$preferred_name
     
-    # 计算网络拓扑参数
-    topo_stats <- data.frame(
-      节点数 = vcount(g),
-      边数 = ecount(g),
-      平均度 = mean(degree(g)),
-      网络密度 = edge_density(g),
-      聚集系数 = transitivity(g),
-      平均路径长度 = ifelse(is_connected(g), mean_distance(g), NA),
-      直径 = ifelse(is_connected(g), diameter(g), NA),
-      连通分量数 = components(g)$no
-    )
-    
-    cat("网络拓扑统计:\n")
-    print(topo_stats)
-    
-    # 保存网络数据
-    write.csv(target_mapping, "results/tables/target_string_mapping.csv", row.names = FALSE)
-    write.csv(target_interactions, "results/tables/ppi_interactions.csv", row.names = FALSE)
-    write.csv(topo_stats, "results/tables/network_topology_stats.csv", row.names = FALSE)
-    
-    # 保存网络对象
-    saveRDS(g, "results/network/ppi_network.rds")
-    
-    cat("网络构建完成！\n")
-    cat("结果已保存到 results/ 目录\n")
-    
+    if (length(excluded_node_names) > 0) {
+      cat("以下", length(excluded_node_names), "个节点是孤立节点，已被排除:\n")
+      for (name in excluded_node_names) {
+        cat("  - ", name, "\n")
+      }
+    }
   } else {
-    cat("警告: 在目标蛋白质之间未找到足够的相互作用\n")
+    cat("✓ 网络本身已是单一连通分量，无需提取。\n")
   }
-  
 } else {
-  cat("错误: 未能映射任何靶点到STRING数据库\n")
+  core_network <- make_empty_graph() # 如果没有组件则创建空图
+  cat("警告：初始网络为空或没有连通组件。\n")
 }
 
-cat("网络构建分析完成！\n")
+# 7. 保存核心网络对象和拓扑统计
+if (vcount(core_network) > 0) {
+  # 计算并保存网络拓扑统计
+  network_stats <- data.frame(
+    nodes = vcount(core_network),
+    edges = ecount(core_network),
+    avg_degree = mean(degree(core_network)),
+    density = graph.density(core_network),
+    clustering_coefficient = transitivity(core_network, type = "global"),
+    avg_path_length = mean_distance(core_network),
+    diameter = diameter(core_network),
+    components = length(decompose(core_network))
+  )
+  cat("核心网络拓扑统计:\n")
+  print(network_stats)
+  
+  # 保存统计信息
+  write_csv(network_stats, "results/tables/network_topology_stats.csv")
+  
+  # 保存igraph对象
+  saveRDS(core_network, file = "results/network/ppi_network.rds")
+  
+  # 保存边列表
+  ppi_edge_list <- as_data_frame(core_network, what = "edges")
+  write_csv(ppi_edge_list, "results/tables/ppi_interactions.csv")
+  
+  cat("✓ 核心网络构建和分析完成，结果已保存。\n")
+} else {
+  cat("最终网络为空，不保存任何结果。\n")
+}
+
+cat("网络构建分析完成！\n") 
