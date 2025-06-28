@@ -10,6 +10,7 @@ suppressMessages({
 })
 
 # 设置工作目录和数据路径
+# setwd("/Users/lgmoon/Desktop/zdhky")  # 相对路径版本，注释掉硬编码路径
 data_dir <- "data/processed/"
 results_dir <- "results/"
 figures_dir <- "results/figures/"

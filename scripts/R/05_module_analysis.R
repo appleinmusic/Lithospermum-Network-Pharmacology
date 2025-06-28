@@ -13,9 +13,14 @@ suppressPackageStartupMessages({
   library(readr)
   library(gridExtra)
   library(ggraph) # 新增ggraph包
+  library(ggforce) # 新增，用于geom_mark_hull
+  library(concaveman) # geom_mark_hull的依赖包
+  library(RColorBrewer)
+  library(tidygraph) # 【结构性修正】引入tidygraph包，确保数据处理的稳健性
 })
 
 # 设置目录路径
+# setwd("/Users/lgmoon/Desktop/zdhky")  # 相对路径版本，注释掉硬编码路径
 output_dir <- "results/figures"
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
@@ -71,77 +76,85 @@ for(i in 1:nrow(module_stats)) {
               module_stats$percentage[i]))
 }
 
-# 4. 可视化功能模块 - 方案一：分面布局 (Faceted Layout)
-cat("正在生成分面布局的功能模块图 (Figure 4)...
-")
-set.seed(123)
+# 4. 可视化功能模块 - 最终方案：单一、清晰的ggraph图
+cat("正在生成最终版的功能模块图 (Figure4_Functional_Modules.png)...\n")
+set.seed(42) # 保证布局可重复
 
-# 使用更清晰、区分度更高的调色板
-module_colors <- rainbow(max(V(g)$community), s = 0.8, v = 0.9)
+# 使用更适合发表的调色板
+module_colors <- RColorBrewer::brewer.pal(n = max(4, max(V(g)$community)), name = "Set2")
 V(g)$module_color <- module_colors[V(g)$community]
 
 # 准备绘图数据
-# 动态调整节点大小，基于度数
-V(g)$size <- scales::rescale(degree(g), to = c(2.5, 10))
-# 确定hub节点用于标签显示 (在每个模块内确定hub)
-V(g)$show_label <- ""
-for(comm_id in unique(V(g)$community)) {
-    module_nodes <- which(V(g)$community == comm_id)
-    module_degrees <- degree(g)[module_nodes]
-    # 提高阈值，只显示每个模块最重要的节点
-    hub_threshold <- quantile(module_degrees, 0.80) 
-    # 确保至少显示一个节点，即使模块很小
-    if (length(module_degrees) > 0 && all(module_degrees < hub_threshold)) {
-        hub_threshold <- min(module_degrees)
-    }
-    hub_nodes <- module_nodes[module_degrees >= hub_threshold]
-    V(g)$show_label[hub_nodes] <- V(g)$gene_symbol[hub_nodes]
-}
+V(g)$size <- scales::rescale(degree(g), to = c(3, 12))
+V(g)$degree <- degree(g) # 将度中心性存为属性
 
-# 确保模块ID是因子类型，以便分面
-V(g)$community_factor <- as.factor(V(g)$community)
+# --- 智能标签逻辑 ---
+# 目标：只为每个模块中度中心性最高的2个节点添加标签
+# 显式创建数据框以确保所有列都存在
+node_df <- data.frame(
+  name = V(g)$name,
+  gene_symbol = V(g)$gene_symbol,
+  community = V(g)$community,
+  degree = V(g)$degree
+)
 
-# 创建ggraph对象
-p_modules_faceted <- ggraph(g, layout = 'fr') + 
-  geom_edge_fan(aes(alpha = ..index..), color = 'grey65', width = 0.45) +
-  geom_node_point(aes(color = community_factor, size = size), alpha = 0.9) +
-  geom_node_text(aes(label = show_label), repel = TRUE, size = 3.5, fontface = 'bold', color = 'black', bg.color = "white", bg.r = 0.1) +
-  # 核心：按社区（模块）进行分面
-  facet_nodes(~community_factor, scales = 'free', ncol = 4) + # 4列布局
-  # 使用美观的调色板
-  scale_color_manual(values = module_colors, name = "Module") +
-  scale_size_continuous(range = c(2.5, 10), name = "Node Degree") +
-  # 主题设置
-  theme_graph(base_family = 'sans', background = 'white', plot_margin = margin(10, 10, 10, 10)) +
-  theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 20, margin = margin(b = 5)), # 居中主标题
-    plot.subtitle = element_text(hjust = 0.5, size = 14, margin = margin(b = 15)), # 居中副标题
-    legend.position = 'bottom',
-    legend.title = element_text(face = "bold", size = 14),
-    legend.text = element_text(size = 12),
-    strip.text = element_text(face = "bold", size = 14, margin = margin(t = 5, b = 5)) # 分面标签
+label_nodes <- node_df %>%
+  group_by(community) %>%
+  top_n(2, degree) %>%
+  pull(name)
+
+V(g)$show_label <- ifelse(V(g)$name %in% label_nodes, V(g)$gene_symbol, "")
+
+# 创建布局
+layout_fr <- create_layout(g, layout = 'fr')
+
+# --- ggraph绘图 ---
+p_modules_final <- ggraph(layout_fr) +
+  # 绘制模块的凸包背景
+  geom_mark_hull(
+    aes(x, y, group = community, fill = factor(community), label = paste("Module", community)),
+    concavity = 4,
+    expand = unit(3, 'mm'),
+    alpha = 0.2,
+    show.legend = FALSE,
+    label.buffer = unit(10, 'mm'),
+    label.fontsize = 10
   ) +
+  # 绘制边
+  geom_edge_fan(aes(alpha = ..index..), color = 'grey50', width = 0.5) +
+  # 绘制节点
+  geom_node_point(aes(color = factor(community), size = size), alpha = 0.8) +
+  # 绘制智能标签
+  geom_node_text(aes(label = show_label), repel = TRUE, size = 3.5, fontface = 'bold', 
+                 bg.color = "white", bg.r = 0.1, max.overlaps = 15) +
+  
+  # 设置颜色、大小和主题
+  scale_fill_manual(values = module_colors) +
+  scale_color_manual(values = module_colors, name = "Functional Module") +
+  scale_size_continuous(range = c(3, 12), name = "Node Degree") +
+  theme_graph(base_family = 'sans', background = 'white') +
+  guides(color = guide_legend(override.aes = list(size=5))) + # 增大图例中的点
   labs(
     title = "Functional Modules in the PPI Network",
-    subtitle = paste("Modularity Score:", round(modularity_score, 3), "| Nodes are faceted by community"),
-    caption = "Layout: Fruchterman-Reingold | Node size corresponds to degree"
+    subtitle = paste("Identified by Louvain clustering (Modularity:", round(modularity_score, 3), ")"),
+    caption = "Node size corresponds to degree. Only top 2 hub nodes per module are labeled."
   )
 
-# 保存新的分面图
-output_filename_faceted <- file.path(output_dir, "Figure4_Functional_Modules_Faceted.png")
-ggsave(output_filename_faceted, 
-       plot = p_modules_faceted, 
-       width = 18, height = 16, units = "in", dpi = 600, bg = "white")
+# 保存最终的图表
+output_filename_final <- file.path(output_dir, "Figure4_Functional_Modules.png")
+ggsave(output_filename_final,
+       plot = p_modules_final,
+       width = 14, height = 12, units = "in", dpi = 300, bg = "white")
 
-cat(paste("✓ 成功保存分面模块图:", output_filename_faceted, "
-"))
+cat(paste("✓ 成功保存最终版功能模块图:", output_filename_final, "\n"))
 
-# 清理旧的Figure4文件，避免混淆
-old_fig_path <- file.path(output_dir, "Figure4_Functional_Modules_Clean.png")
-if (file.exists(old_fig_path)) {
-  file.remove(old_fig_path)
-  cat("✓ 已删除旧的Figure4文件:", old_fig_path, "
-")
+# 清理旧的、可能混淆的图表文件
+other_fig_paths <- file.path(output_dir, c("Figure4_Functional_Modules_Faceted.png", "Figure4_Functional_Modules_Enhanced.png"))
+for (f_path in other_fig_paths) {
+    if (file.exists(f_path)) {
+        file.remove(f_path)
+        cat("✓ 已删除旧图:", f_path, "\n")
+    }
 }
 
 
@@ -230,189 +243,99 @@ write.csv(module_info, "results/tables/functional_modules.csv", row.names = FALS
 # 保存模块统计
 write.csv(module_stats, "results/tables/module_statistics.csv", row.names = FALSE)
 
-# 7. 模块间连接分析
-cat("\n=== 模块间连接分析 ===\n")
+# 7. 模块间连接分析 和 Top 3 模块可视化 (最终修复版)
+cat("\n=== Top 3 功能模块深度分析 ===\n")
 
-# 计算模块间边数
-edge_list <- as_edgelist(g, names = FALSE)  # 使用新的函数
-module_edges <- data.frame(
-  from_module = V(g)$community[edge_list[,1]],
-  to_module = V(g)$community[edge_list[,2]],
-  stringsAsFactors = FALSE
-)
+# 找出最大的3个模块的ID
+top3_modules <- module_stats %>%
+  top_n(3, size) %>%
+  pull(module)
 
-# 统计模块内和模块间连接
-intra_module_edges <- sum(module_edges$from_module == module_edges$to_module)
-inter_module_edges <- sum(module_edges$from_module != module_edges$to_module)
+cat("--> 已确定Top 3模块 (ID):", paste(top3_modules, collapse=", "), "\n")
 
-cat("模块内连接数:", intra_module_edges, "\n")
-cat("模块间连接数:", inter_module_edges, "\n")
-cat("模块内连接比例:", round(intra_module_edges / ecount(g) * 100, 1), "%\n")
+# 【结构性修正】使用 tidygraph 进行稳健的子图操作
+# 从主图 g 创建 tidygraph 对象，并加入社区信息
+g_tidy <- as_tbl_graph(g, directed = FALSE) %>%
+  activate(nodes) %>%
+  mutate(community = V(g)$community)
 
-# 8. 模块连接性分析和可视化
-cat("\n=== 生成模块连接性图 ===\n")
+# 筛选出只包含 Top 3 模块的节点，并创建子图
+g_top3_tidy <- g_tidy %>%
+  filter(community %in% top3_modules)
 
-# 计算模块间连接矩阵
-module_connectivity_matrix <- matrix(0, nrow = max(V(g)$community), ncol = max(V(g)$community))
-rownames(module_connectivity_matrix) <- paste("Module", 1:max(V(g)$community))
-colnames(module_connectivity_matrix) <- paste("Module", 1:max(V(g)$community))
+# 获取子图的节点和边数
+v_count_top3 <- g_top3_tidy %>% activate(nodes) %>% as_tibble() %>% nrow()
+e_count_top3 <- g_top3_tidy %>% activate(edges) %>% as_tibble() %>% nrow()
 
-# 填充连接矩阵
-for(i in 1:nrow(module_edges)) {
-  from_mod <- module_edges$from_module[i]
-  to_mod <- module_edges$to_module[i]
-  module_connectivity_matrix[from_mod, to_mod] <- module_connectivity_matrix[from_mod, to_mod] + 1
-  if(from_mod != to_mod) {
-    module_connectivity_matrix[to_mod, from_mod] <- module_connectivity_matrix[to_mod, from_mod] + 1
-  }
+# 【错误修复 V3】正确的模块化得分计算方法
+# 在子图上重新进行社区检测
+g_top3_igraph <- as.igraph(g_top3_tidy)
+communities_top3 <- cluster_louvain(g_top3_igraph)
+
+# 使用 igraph 的 modularity 函数计算模块化得分
+modularity_top3 <- modularity(communities_top3)
+
+# 将社区信息添加回tidygraph对象
+g_top3_tidy <- g_top3_tidy %>%
+    mutate(community = as.factor(membership(communities_top3)))
+
+cat("✓ 已创建Top 3模块子图，包含", v_count_top3, "个节点和", e_count_top3, "条边。新模块化得分:", round(modularity_top3, 3), "\n")
+
+
+# --- 可视化Top 3模块网络 ---
+cat("--> 正在生成Top 3模块网络图 (Figure4_Top3_Modules.png)...\n")
+set.seed(123) # 使用不同的种子以获得可能更优的布局
+
+# 检查子图是否为空
+if (v_count_top3 == 0) {
+  cat("! Top 3 模块子图为空，跳过可视化。\n")
+} else {
+  # 创建布局
+  layout_top3 <- create_layout(g_top3_tidy, layout = 'fr')
+
+  # 准备智能标签
+  node_df_top3 <- as_tibble(activate(g_top3_tidy, "nodes"))
+  label_nodes_top3 <- node_df_top3 %>%
+    group_by(community) %>%
+    top_n(3, degree) %>%
+    pull(name)
+  
+  g_top3_tidy <- g_top3_tidy %>%
+    mutate(show_label = ifelse(name %in% label_nodes_top3, gene_symbol, ""))
+
+  p_top3_modules <- ggraph(g_top3_tidy, layout = layout_top3) +
+    geom_mark_hull(
+      aes(x, y, group = community, fill = factor(community)),
+      concavity = 4, expand = unit(3, 'mm'), alpha = 0.2, show.legend = FALSE
+    ) +
+    # 【错误修复】不再引用不存在的 'weight' 属性。使用固定的边样式，与主图一致。
+    geom_edge_fan(color = 'grey60', width = 0.6, alpha = 0.7) +
+    geom_node_point(aes(color = factor(community), size = degree), alpha = 0.9) +
+    geom_node_text(aes(label = show_label), repel = TRUE, size = 4, fontface = 'bold',
+                   bg.color = "white", bg.r = 0.1, max.overlaps = 20) +
+    scale_fill_manual(values = module_colors) +
+    scale_color_manual(values = module_colors, name = "Functional Module") +
+    scale_size_continuous(name = "Node Degree", range=c(4,15)) +
+    theme_graph(base_family = 'sans', background = 'white') +
+    labs(
+      title = "Analysis of Top 3 Functional Modules",
+      subtitle = paste("Network of", v_count_top3, "nodes and", e_count_top3, "edges."),
+      caption = "Node size corresponds to degree. Top 3 hub nodes per module are labeled."
+    )
+
+  output_filename_top3 <- file.path(output_dir, "Figure4_Top3_Modules.png")
+  ggsave(output_filename_top3,
+         plot = p_top3_modules,
+         width = 14, height = 12, units = "in", dpi = 300, bg = "white")
+
+  cat("✓ 成功保存Top 3模块网络图:", output_filename_top3, "\n")
 }
 
-# 生成模块连接性热图
-library(reshape2)
-connectivity_df <- melt(module_connectivity_matrix)
-colnames(connectivity_df) <- c("Module1", "Module2", "Connections")
-
-p_connectivity <- ggplot(connectivity_df, aes(x = Module1, y = Module2, fill = Connections)) +
-  geom_tile(color = "white", linewidth = 1) +
-  geom_text(aes(label = Connections), color = "white", size = 6, fontface = "bold") +
-  scale_fill_gradient(name = "Connections", 
-                      low = "#3498DB", high = "#E74C3C",
-                      guide = guide_colorbar(title.position = "top")) +
-  labs(
-    title = "Module Connectivity Matrix",
-    subtitle = paste("Inter- and intra-module connections (Total modules:", max(V(g)$community), ")"),
-    x = "Module",
-    y = "Module",
-    caption = "Values represent the number of edges between modules"
-  ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", size = 18, hjust = 0.5),
-    plot.subtitle = element_text(size = 14, hjust = 0.5),
-    plot.caption = element_text(size = 11, hjust = 0.5, color = "grey60"),
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
-    axis.text.y = element_text(size = 12),
-    axis.title = element_text(size = 14, face = "bold"),
-    legend.position = "bottom",
-    legend.title = element_text(size = 12, face = "bold"),
-    legend.text = element_text(size = 11),
-    panel.grid = element_blank(),
-    plot.background = element_rect(fill = "white"),
-    panel.background = element_rect(fill = "white")
-  ) +
-  coord_fixed()
-
-# 保存模块连接性图
-ggsave(file.path(output_dir, "module_connectivity_plot.pdf"), 
-       plot = p_connectivity, width = 10, height = 8, units = "in")
-ggsave(file.path(output_dir, "module_connectivity_plot.png"), 
-       plot = p_connectivity, width = 10, height = 8, dpi = 300, units = "in")
-
-# 9. 模块组成分析图
-cat("正在生成模块组成分析图...\n")
-
-# 计算每个模块的连接度统计
-module_composition_stats <- data.frame(
-  module = 1:max(V(g)$community),
-  size = as.vector(table(V(g)$community)),
-  avg_degree = sapply(1:max(V(g)$community), function(m) {
-    nodes_in_module <- which(V(g)$community == m)
-    mean(degree(g)[nodes_in_module])
-  }),
-  max_degree = sapply(1:max(V(g)$community), function(m) {
-    nodes_in_module <- which(V(g)$community == m)
-    max(degree(g)[nodes_in_module])
-  }),
-  internal_edges = sapply(1:max(V(g)$community), function(m) {
-    sum(module_edges$from_module == m & module_edges$to_module == m)
-  }),
-  external_edges = sapply(1:max(V(g)$community), function(m) {
-    sum((module_edges$from_module == m & module_edges$to_module != m) |
-        (module_edges$to_module == m & module_edges$from_module != m))
-  })
-)
-
-module_composition_stats$density <- with(module_composition_stats, 
-                                        2 * internal_edges / (size * (size - 1)))
-module_composition_stats$external_ratio <- with(module_composition_stats, 
-                                               external_edges / (internal_edges + external_edges))
-
-# 生成组合图表
-p1_comp <- ggplot(module_composition_stats, aes(x = factor(module), y = size)) +
-  geom_col(fill = "#3498DB", alpha = 0.8, color = "black") +
-  geom_text(aes(label = size), vjust = -0.5, size = 4, fontface = "bold") +
-  labs(title = "Module Size Distribution", x = "Module", y = "Number of Nodes") +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
-    axis.text = element_text(size = 11),
-    axis.title = element_text(size = 12, face = "bold")
-  )
-
-p2_comp <- ggplot(module_composition_stats, aes(x = factor(module), y = avg_degree)) +
-  geom_col(fill = "#E74C3C", alpha = 0.8, color = "black") +
-  geom_text(aes(label = round(avg_degree, 1)), vjust = -0.5, size = 4, fontface = "bold") +
-  labs(title = "Average Degree per Module", x = "Module", y = "Average Degree") +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
-    axis.text = element_text(size = 11),
-    axis.title = element_text(size = 12, face = "bold")
-  )
-
-p3_comp <- ggplot(module_composition_stats, aes(x = factor(module), y = density)) +
-  geom_col(fill = "#2ECC71", alpha = 0.8, color = "black") +
-  geom_text(aes(label = round(density, 2)), vjust = -0.5, size = 4, fontface = "bold") +
-  labs(title = "Module Density", x = "Module", y = "Internal Density") +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
-    axis.text = element_text(size = 11),
-    axis.title = element_text(size = 12, face = "bold")
-  )
-
-p4_comp <- ggplot(module_composition_stats, aes(x = factor(module), y = external_ratio)) +
-  geom_col(fill = "#F39C12", alpha = 0.8, color = "black") +
-  geom_text(aes(label = round(external_ratio, 2)), vjust = -0.5, size = 4, fontface = "bold") +
-  labs(title = "External Connection Ratio", x = "Module", y = "External/Total Ratio") +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
-    axis.text = element_text(size = 11),
-    axis.title = element_text(size = 12, face = "bold")
-  )
-
-# 组合图表
-p_composition <- grid.arrange(p1_comp, p2_comp, p3_comp, p4_comp, 
-                             ncol = 2, nrow = 2,
-                             top = "Module Composition Analysis")
-
-# 保存模块组成图
-ggsave(file.path(output_dir, "module_composition_plot.pdf"), 
-       plot = p_composition, width = 12, height = 10, units = "in")
-ggsave(file.path(output_dir, "module_composition_plot.png"), 
-       plot = p_composition, width = 12, height = 10, dpi = 300, units = "in")
-
-# 保存模块统计数据
-write.csv(module_composition_stats, "results/tables/module_composition_stats.csv", row.names = FALSE)
-
-# 10. 生成分析摘要
-summary_info <- list(
-  total_modules = max(V(g)$community),
-  modularity_score = round(modularity_score, 3),
-  largest_module = max(module_stats$size),
-  smallest_module = min(module_stats$size),
-  intra_module_edges = intra_module_edges,
-  inter_module_edges = inter_module_edges,
-  intra_module_percentage = round(intra_module_edges / ecount(g) * 100, 1)
-)
 
 cat("\n=== 功能模块分析完成 ===\n")
-cat("✓ 检测模块数:", summary_info$total_modules, "\n")
-cat("✓ 模块化系数:", summary_info$modularity_score, "\n")
-cat("✓ 最大模块大小:", summary_info$largest_module, "个节点\n")
-cat("✓ 模块内连接比例:", summary_info$intra_module_percentage, "%\n")
-cat("✓ 保存图表: Figure4_Functional_Modules_Faceted.png, module_distribution_pie.png\n")
-cat("✓ 保存新图表: module_connectivity_plot.png, module_composition_plot.png\n")
-cat("✓ 保存数据: functional_modules.csv, module_statistics.csv, module_composition_stats.csv\n")
+cat("✓ 检测模块数:", max(V(g)$community), "\n")
+cat("✓ 模块化系数:", round(modularity_score, 3), "\n")
+cat("✓ 最大模块大小:", max(module_stats$size), "个节点\n")
+cat("✓ 保存图表: Figure4_Functional_Modules.png, Figure4_Top3_Modules.png, module_distribution_*.png\n")
+cat("✓ 保存数据: functional_modules.csv, module_statistics.csv\n")
 cat("完成时间:", as.character(Sys.time()), "\n")

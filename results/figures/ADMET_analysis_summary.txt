@@ -1,16 +1,4 @@
-=== ADMET Properties Summary (Predicted) ===
-Total Compounds Screened: 21
-ADMET Compliant Compounds: 20
-ADMET Success Rate: 95.2%
-MW Mean (Da): 292.72
-MW Range (Da): 152.23-388.41
-LogP Mean: 3.081
-LogP Range: -0.818-5.174
-TPSA Mean (A^2): 72.43
-TPSA Range (A^2): 0-121.13
-
-=== Four-Panel Figure Components ===
-Panel A: MW vs LogP scatter plot (Predicted)
-Panel B: TPSA distribution histogram (Predicted)
-Panel C: Lipinski rules compliance rates (Predicted)
-Panel D: H-Bond Donors vs Acceptors plot
+--- Network Analysis and Visualization Summary --- Timestamp: 2025-06-29 00:12:35.690335 
+[PPI Network] Nodes: 31 Edges: 192 Network Density: 0.4129 Average Degree: 12.39 
+[Centrality Analysis] Top 5 Hubs (by Degree): TP53, EGFR, PTGS2, CYP2C9, MAPK1 
+--- End of Summary ---

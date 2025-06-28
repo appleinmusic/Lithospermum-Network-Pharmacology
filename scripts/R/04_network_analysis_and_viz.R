@@ -175,60 +175,43 @@ if (!is.null(target_mapping)) {
   cat("警告：未找到靶点映射文件，使用节点ID作为标签\n")
 }
 
-# 基础网络布局
+# --- 图1: PPI网络图 (使用ggraph改进) ---
+cat("正在生成基于ggraph的PPI网络图...\n")
+
+# 使用更美观的布局算法
 set.seed(123)
-layout_fr <- layout_with_fr(g)
+layout_gg <- create_layout(g, layout = 'fr')
 
-# 调试：检查节点属性
-cat("检查节点属性...\n")
-cat("节点属性列表:", paste(vertex_attr_names(g), collapse = ", "), "\n")
-if ("gene_symbol" %in% vertex_attr_names(g)) {
-  cat("前5个基因符号:", head(V(g)$gene_symbol, 5), "\n")
-} else {
-  cat("警告：gene_symbol属性未找到\n")
-}
+# 提取网络属性用于标题
+density_val <- round(edge_density(g), 3)
+avg_degree_val <- round(mean(degree(g)), 2)
+nodes_val <- vcount(g)
+edges_val <- ecount(g)
 
-# 生成网络图 - 使用更大的画布和更清晰的标签
-png("results/figures/Figure1_PPI_Network.png", width = 16, height = 14, units = "in", res = 300)
-par(mar = c(2, 2, 4, 8), bg = "white")
-plot(g, 
-     layout = layout_fr,
-     vertex.label = V(g)$gene_symbol,
-     vertex.label.cex = 0.9,
-     vertex.label.color = "black",
-     vertex.label.font = 2,
-     vertex.frame.color = "white",
-     vertex.frame.width = 2,
-     edge.color = alpha("gray50", 0.6),
-     edge.curved = 0.1,
-     main = "Protein-Protein Interaction Network of L. erythrorhizon Targets\n(High-confidence interactions, STRING v12.0)",
-     sub = paste("Nodes:", vcount(g), "| Edges:", ecount(g), "| Combined Score ≥ 400"),
-     cex.main = 1.6,
-     cex.sub = 1.3)
+# 使用ggraph绘图
+p_ppi <- ggraph(layout_gg) + 
+  geom_edge_fan(aes(width = I(width), alpha = I(0.5)), color = "gray60") +
+  geom_node_point(aes(color = node_type, size = I(size))) +
+  geom_node_text(aes(label = name_display), repel = TRUE, size = 3.5, fontface = "bold", 
+                 max.overlaps = 15, bg.color = "white", bg.r = 0.1) +
+  scale_color_manual(values = node_colors, name = "Node Type", 
+                     labels = c("Direct L. erythrorhizon target", "First-shell interactor")) +
+  scale_edge_width_continuous(range = c(0.3, 1.5), guide = "none") +
+  theme_graph(base_family = 'sans', background = "white") +
+  theme(
+    legend.position = "right",
+    legend.title = element_text(face = "bold", size = 12),
+    legend.text = element_text(size = 10)
+  ) +
+  labs(
+    title = "Protein-Protein Interaction Network of L. erythrorhizon Targets",
+    subtitle = paste("High-confidence interactions, STRING v12.0 (Nodes:", nodes_val, "| Edges:", edges_val,")"),
+    caption = paste("Network Density:", density_val, "| Average Degree:", avg_degree_val, "| Node size encodes degree centrality")
+  )
 
-# 添加清晰的图例
-legend("topright", 
-       legend = c("Direct L. erythrorhizon targets", "First-shell interactors", 
-                 "", paste("Network density:", round(edge_density(g), 3)),
-                 paste("Average degree:", round(mean(degree(g)), 2))),
-       col = c(node_colors[1], node_colors[2], "white", "black", "black"),
-       pch = c(19, 19, NA, NA, NA),
-       pt.cex = c(2, 2, 1, 1, 1),
-       cex = 1.1,
-       title = "Network Properties",
-       title.adj = 0,
-       bty = "n")
-
-# 添加度中心性说明
-legend("bottomright",
-       legend = c("Node size represents", "degree centrality", 
-                 paste("Range:", min(degree(g)), "-", max(degree(g)))),
-       pch = NA,
-       cex = 1.0,
-       title = "Size Encoding",
-       title.adj = 0,
-       bty = "n")
-dev.off()
+# 保存ggraph版本
+ggsave("results/figures/Figure1_PPI_Network.png", plot = p_ppi, width = 12, height = 10, dpi = 300, units = "in")
+cat("✓ 新版PPI网络图已保存。\n")
 
 # 3. 网络拓扑分析可视化 - 生成完整的四合一图
 cat("正在生成拓扑分析四合一图...\n")
@@ -407,186 +390,25 @@ write.csv(key_nodes, "results/tables/key_nodes_analysis.csv", row.names = FALSE)
 cat("前10个Hub节点:\n")
 print(head(key_nodes[key_nodes$is_hub, c("gene_symbol", "degree", "betweenness")], 10))
 
-# 5. 功能模块分析
-cat("正在进行功能模块分析...\n")
-
-# 社区检测
-communities <- cluster_louvain(g)
-V(g)$community <- membership(communities)
-
-# 确保基因符号属性在模块分析后仍然存在
-cat("模块分析后检查基因符号:", head(V(g)$gene_symbol, 3), "\n")
-
-cat("检测到", max(V(g)$community), "个功能模块\n")
-
-# 模块化系数
-modularity_score <- modularity(communities)
-cat("模块化系数:", round(modularity_score, 3), "\n")
-
-# 可视化功能模块
-set.seed(123)
-module_colors <- rainbow(max(V(g)$community))
-V(g)$module_color <- module_colors[V(g)$community]
-
-png("results/figures/Figure4_Functional_Modules.png", width = 16, height = 14, units = "in", res = 300)
-par(mar = c(2, 2, 4, 6))
-
-# 使用更稳定的布局算法减少重叠
-set.seed(42)  # 确保可重复性
-layout_stable <- layout_with_fr(g, niter = 5000, coolexp = 1.5, repulserad = vcount(g)^2.5)
-
-# 计算节点大小基于度中心性，增加差异化
-node_sizes <- (degree(g) - min(degree(g))) / (max(degree(g)) - min(degree(g))) * 15 + 8
-
-# 创建直接的标签向量，确保使用基因符号
-node_labels <- V(g)$gene_symbol
-cat("准备绘制的标签(前5个):", head(node_labels, 5), "\n")
-
-plot(g, 
-     layout = layout_stable,
-     vertex.color = V(g)$module_color,
-     vertex.label = node_labels,  # 直接使用标签向量
-     vertex.label.cex = 0.7,  # 稍微增大字体
-     vertex.label.color = "white",  # 使用白色标签
-     vertex.label.font = 2,  # 粗体
-     vertex.label.family = "sans",  # 使用无衬线字体
-     vertex.label.dist = 0,  # 标签居中
-     vertex.size = node_sizes,  # 基于度中心性的节点大小
-     vertex.frame.color = "black",  # 黑色边框增强对比
-     vertex.frame.width = 2,  # 增加边框宽度
-     edge.color = alpha("gray40", 0.6),  # 稍微深一点的边
-     edge.width = 0.8,
-     main = paste("Functional Modules (Modularity =", round(modularity_score, 3), ")"),
-     cex.main = 1.5)
-
-# 添加模块边界，使用更透明的颜色
-plot(communities, g, layout = layout_stable, add = TRUE, 
-     col = alpha(module_colors, 0.2), border = alpha(module_colors, 0.8), lwd = 2)
-
-# 添加图例
-legend("topright", 
-       legend = paste("Module", 1:max(V(g)$community)), 
-       fill = module_colors[1:max(V(g)$community)],
-       title = "Functional Modules",
-       cex = 0.8,
-       bg = "white")
-
-dev.off()
-
-# 生成无标签的清晰版本功能模块图
-png("results/figures/Figure4_Functional_Modules_Clean.png", width = 16, height = 14, units = "in", res = 300)
-par(mar = c(2, 2, 4, 8))
-
-plot(g, 
-     layout = layout_stable,
-     vertex.color = V(g)$module_color,
-     vertex.label = NA,  # 无标签版本
-     vertex.size = node_sizes,
-     vertex.frame.color = "white",
-     vertex.frame.width = 2,
-     edge.color = alpha("gray50", 0.4),
-     edge.width = 1,
-     main = paste("Functional Modules - Clean View (Modularity =", round(modularity_score, 3), ")"),
-     cex.main = 1.5)
-
-# 添加模块边界
-plot(communities, g, layout = layout_stable, add = TRUE, 
-     col = alpha(module_colors, 0.25), border = module_colors, lwd = 3)
-
-# 详细图例，包含每个模块的基因
-module_genes <- split(V(g)$gene_symbol, V(g)$community)
-legend_text <- sapply(1:length(module_genes), function(i) {
-  genes <- module_genes[[i]]
-  if(length(genes) <= 4) {
-    paste("Module", i, ":", paste(genes, collapse = ", "))
-  } else {
-    paste("Module", i, ":", paste(genes[1:3], collapse = ", "), "... (", length(genes), "genes)")
-  }
-})
-
-legend("topright", 
-       legend = legend_text,
-       fill = module_colors[1:length(module_genes)],
-       title = "Functional Modules",
-       cex = 0.7,
-       bg = "white",
-       border = "black")
-
-dev.off()
-
-# 创建一个更清晰的标签版本
-png("results/figures/Figure4_Functional_Modules_Enhanced.png", width = 16, height = 14, units = "in", res = 300)
-par(mar = c(2, 2, 4, 6))
-
-# 使用相同的布局
-plot(g, 
-     layout = layout_stable,
-     vertex.color = V(g)$module_color,
-     vertex.label = node_labels,
-     vertex.label.cex = 0.8,  # 更大的字体
-     vertex.label.color = "black",  # 黑色文字
-     vertex.label.font = 2,  # 粗体
-     vertex.label.family = "sans",
-     vertex.label.dist = 0,  # 居中
-     vertex.size = node_sizes + 3,  # 稍微大一点的节点
-     vertex.frame.color = "white",  # 白色边框作为背景
-     vertex.frame.width = 3,  # 更宽的白色边框
-     edge.color = alpha("gray30", 0.7),
-     edge.width = 1,
-     main = paste("Functional Modules - Enhanced Labels (Modularity =", round(modularity_score, 3), ")"),
-     cex.main = 1.5)
-
-# 添加模块边界
-plot(communities, g, layout = layout_stable, add = TRUE, 
-     col = alpha(module_colors, 0.15), border = alpha(module_colors, 0.9), lwd = 3)
-
-# 添加图例
-legend("topright", 
-       legend = paste("Module", 1:max(V(g)$community)), 
-       fill = module_colors[1:max(V(g)$community)],
-       title = "Functional Modules",
-       cex = 0.8,
-       bg = "white",
-       box.col = "black")
-
-dev.off()
+# 5. [DEPRECATED] 功能模块分析和可视化已移至 05_module_analysis.R
+cat("功能模块分析和可视化已移至 05_module_analysis.R 脚本。\n")
+cat("此脚本 (04) 不再生成功能模块图，以确保单一来源原则。\n")
 
 # 6. 生成分析摘要
 cat("正在生成分析摘要...\n")
-
-summary_stats <- data.frame(
-  指标 = c("节点总数", "边总数", "平均度", "网络密度", "聚集系数", 
-           "平均路径长度", "网络直径", "连通分量数", "功能模块数", "模块化系数"),
-  值 = c(vcount(g), ecount(g), round(mean(degree(g)), 2), 
-         round(edge_density(g), 4), round(transitivity(g), 3),
-         ifelse(is_connected(g), round(mean_distance(g), 2), "不连通"),
-         ifelse(is_connected(g), diameter(g), "不连通"),
-         components(g)$no, max(V(g)$community), round(modularity_score, 3)),
-  stringsAsFactors = FALSE
+summary_text <- paste(
+  "--- Network Analysis and Visualization Summary ---",
+  paste("Timestamp:", Sys.time()),
+  "\n[PPI Network]",
+  paste("Nodes:", vcount(g)),
+  paste("Edges:", ecount(g)),
+  paste("Network Density:", round(edge_density(g), 4)),
+  paste("Average Degree:", round(mean(degree(g)), 2)),
+  "\n[Centrality Analysis]",
+  paste("Top 5 Hubs (by Degree):", paste(head(key_nodes$gene_symbol, 5), collapse=", ")),
+  "\n--- End of Summary ---"
 )
-
-write.csv(summary_stats, "results/tables/network_summary.csv", row.names = FALSE)
-
-# 保存模块信息
-module_info <- data.frame(
-  node = names(V(g)),
-  gene_symbol = V(g)$gene_symbol,
-  module = V(g)$community,
-  stringsAsFactors = FALSE
-)
-
-module_info <- module_info[order(module_info$module, -key_nodes$degree), ]
-write.csv(module_info, "results/tables/functional_modules.csv", row.names = FALSE)
-
-# 保存可视化图例说明
-legends <- c(
-  "Figure1_PPI_Network.png: 基于STRING数据库v12.0的蛋白质相互作用网络，节点大小表示度中心性，边宽度表示相互作用置信度",
-  "Figure2_Network_Topology.png: 网络拓扑分析，包括度分布和中心性分析散点图",
-  "Figure3_Centrality_Correlation.png: 不同中心性指标之间的相关性热图",
-  "Figure4_Functional_Modules.png: 基于Louvain算法的功能模块检测结果，不同颜色代表不同功能模块"
-)
-
-writeLines(legends, "results/figures/figure_legends.txt")
+writeLines(summary_text, "results/figures/ADMET_analysis_summary.txt")
 
 cat("网络可视化分析完成！\n")
 cat("生成的图表文件:\n")

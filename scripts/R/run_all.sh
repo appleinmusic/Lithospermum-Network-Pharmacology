@@ -15,31 +15,56 @@
 #   4. 运行命令: ./scripts/R/run_all.sh
 # ==============================================================================
 
-# --- 自动定位并切换到项目根目录 ---
-# 获取脚本自身的绝对路径
-SCRIPT_PATH=$(realpath "$0")
-# 获取脚本所在的目录
-SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
-# 计算项目根目录 (假定此脚本位于 'scripts/R/' 子目录中)
-PROJECT_ROOT=$(realpath "$SCRIPT_DIR/../..")
-
-# 切换到项目根目录
-cd "$PROJECT_ROOT" || exit 1
-# --- 完成目录切换 ---
-
-
-# 函数：打印带有时间戳的日志信息
-log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+# Function to print a timestamped message
+log_msg() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
 }
 
-# 确保在项目根目录运行
-if [ ! -d "scripts" ] || [ ! -d "data" ]; then
-    log "错误：请在项目根目录（包含 scripts/ 和 data/ 的目录）下运行此脚本。"
+# --- 1. Environment Sanity Check & Package Installation ---
+log_msg "--- [环境检查] 正在验证并安装必需的R包... ---"
+R -e '
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
+required_packages <- c(
+    "igraph", "ggplot2", "ggraph", "ggrepel", "dplyr", "RColorBrewer",
+    "gridExtra", "grid", "corrplot", "pheatmap", "reshape2", "scales",
+    "clusterProfiler", "org.Hs.eg.db", "enrichplot", "readr", "stringr",
+    "data.table", "rcdk", "ggforce", "concaveman"
+)
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages) > 0) {
+    cat("发现未安装的包，正在安装:", paste(new_packages, collapse=", "), "\n")
+    install.packages(new_packages)
+} else {
+    cat("✓ 所有必需的R包均已安装。\n")
+}
+'
+
+# Check if the R command was successful
+if [ $? -ne 0 ]; then
+    log_msg "!!! [错误] R包安装或检查失败。请检查您的R环境和网络连接。流程中断。 !!!"
     exit 1
 fi
+log_msg "--- [环境检查] 完成 ---"
 
-# 定义要执行的脚本列表
+
+# --- 2. Change to Project Root Directory ---
+# Find the directory where this script is located
+# SCRIPT_DIR=$(dirname "$(realpath "$0")")
+# PROJECT_ROOT=$(realpath "$SCRIPT_DIR/../../")
+# cd "$PROJECT_ROOT"
+
+# Fallback for environments without realpath
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+PROJECT_ROOT=$(cd "$SCRIPT_DIR/../../" &> /dev/null && pwd)
+
+log_msg "项目根目录: $PROJECT_ROOT"
+cd "$PROJECT_ROOT" || { log_msg "无法切换到项目根目录，退出。"; exit 1; }
+
+# --- 3. Execute Analysis Scripts in Order ---
+log_msg "=== 开始执行完整的分析流程 ==="
+START_TIME=$SECONDS
+
+# List of scripts to run
 SCRIPTS=(
     "scripts/R/01_data_preparation.R"
     "scripts/R/02_ADMET_filtering.R"
@@ -51,36 +76,26 @@ SCRIPTS=(
     "scripts/R/08_docking_validation_viz.R"
 )
 
-# 记录总开始时间
-TOTAL_START_TIME=$(date +%s)
-
-log "=== 开始执行完整的分析流程 ==="
-echo "========================================"
-
-# 循环执行所有脚本
-for script in "${SCRIPTS[@]}"; do
-    log "--- [开始] 正在运行: $script ---"
-    START_TIME=$(date +%s)
-    
-    # 运行R脚本
-    Rscript "$script"
-    
-    # 检查R脚本是否成功执行
-    if [ $? -ne 0 ]; then
-        log "!!! [错误] $script 执行失败。流程中断。 !!!"
-        exit 1
+for SCRIPT in "${SCRIPTS[@]}"; do
+    if [ -f "$SCRIPT" ]; then
+        log_msg "--- [开始] 正在运行: $SCRIPT ---"
+        script_start_time=$SECONDS
+        Rscript "$SCRIPT"
+        if [ $? -ne 0 ]; then
+            log_msg "!!! [错误] $SCRIPT 执行失败。流程中断。 !!!"
+            exit 1
+        fi
+        script_end_time=$SECONDS
+        log_msg "--- [成功] 完成: $SCRIPT (耗时: $((script_end_time - script_start_time))s) ---"
+        echo "" # Add a blank line for readability
+    else
+        log_msg "!!! [警告] 脚本未找到: $SCRIPT ，已跳过。 !!!"
     fi
-    
-    END_TIME=$(date +%s)
-    DURATION=$((END_TIME - START_TIME))
-    log "--- [成功] 完成: $script (耗时: ${DURATION}s) ---"
-    echo ""
 done
 
-TOTAL_END_TIME=$(date +%s)
-TOTAL_DURATION=$((TOTAL_END_TIME - TOTAL_START_TIME))
+END_TIME=$SECONDS
+log_msg "=== 所有脚本已成功执行完毕 ==="
+log_msg "总耗时: $((END_TIME - START_TIME))s"
+log_msg "========================================"
 
-echo "========================================"
-log "=== 所有脚本已成功执行完毕 ==="
-log "总耗时: ${TOTAL_DURATION}s"
-echo "========================================"
+exit 0
