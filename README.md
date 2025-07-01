@@ -37,13 +37,7 @@ This repository contains the complete computational pipeline for scientific rese
 > 1.  **Compound Screening:** Out of 26 initial bioactive compounds, **22 (84.6%)** passed rigorous ADMET (drug-likeness) screening using standard Lipinski's Rule of Five.
 > 2.  **Target Identification:** These 22 core compounds are associated with 35 unique human protein targets through high-confidence interactions.
 > 3.  **Network Construction:** A high-confidence protein-protein interaction network was built using STRING database v12.0 (score ≥ 400), resulting in a core functional network of **31 proteins and 192 interactions**.
-> 4.  **Core Network Analysis:** The final network represents a single, highly connected component with:
->    - **Network Density**: 0.413 (highly interconnected)
->    - **Average Clustering Coefficient**: 0.453 (strong local connectivity)
->    - **Average Path Length**: 2.13 (efficient information flow)
->    - **Network Diameter**: 5 (maximum shortest path)
-> 
-> This core network reveals key inflammatory and metabolic hubs including **TP53** (degree=42), **EGFR** (degree=30), and **PTGS2/COX-2** (degree=26), providing mechanistic insights into Lithospermum's anti-inflammatory efficacy.
+> 4.  **Core Network Analysis:** The final network represents a single, highly connected component with 31 proteins and 192 interactions. Topological analysis identified key inflammatory and metabolic hubs including **TP53**, **EGFR**, and **PTGS2/COX-2**, providing mechanistic insights into Lithospermum's anti-inflammatory efficacy.
 
 ---
 
@@ -235,7 +229,7 @@ Lithospermum_Network_Pharmacology_Reproducibility/
 - **Script**: `06_enrichment_analysis.R`
 - **Method**: clusterProfiler with FDR < 0.05
 - **Databases**: GO (Biological Process, Molecular Function, Cellular Component), KEGG
-- **Output**: 177 significant KEGG pathways, 426 significant GO terms
+- **Output**: 51 significant KEGG pathways, 426 significant GO terms
 
 ### **Stage 7: Compound-Target Network Visualization**
 - **Script**: `07_compound_target_viz.R`
@@ -438,12 +432,11 @@ BiocManager::install("clusterProfiler")
 If you use this pipeline in your research, please cite:
 
 ```bibtex
-@article{lithospermum_network_2025,
-  title={Network Pharmacology Analysis Reveals the Multi-Target Mechanisms of Lithospermum erythrorhizon Against Inflammatory Diseases},
-  author={[Authors]},
-  journal={[Journal]},
-  year={2025},
-  doi={[DOI]}
+@article{zheng_lithospermum_2025,
+  title={A Network Pharmacology Approach Integrating CMAUP v2.0 and STRING Uncovers the Multi-Target Mechanisms of *Lithospermum erythrorhizon* in Inflammatory Diseases},
+  author={Zheng, Hong-Wei and Chen, Wen-Biao and Huang, Wen-Wen and Wu, Jia-Xiang},
+  journal={In Preparation},
+  year={2025}
 }
 ```
 
