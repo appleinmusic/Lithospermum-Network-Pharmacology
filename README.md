@@ -70,7 +70,7 @@ open results/figures/interactive_ppi_network.html   # Interactive network visual
 ## 🛠️ System Requirements
 
 ### Operating System
-- **Primary**: macOS (tested on macOS 14.0+)
+- **Primary**: macOS (tested on macOS 12.7.6+)
 - **Alternative**: Linux (Ubuntu 20.0+) or Windows 10+ with WSL2
 
 ### R Environment
