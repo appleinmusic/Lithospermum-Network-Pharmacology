@@ -5,7 +5,7 @@
 # 功能:
 #   - 自动检查所需数据库文件是否存在，如果不存在则提供清晰的下载指引。
 #   - 自动定位项目根目录，支持在任何位置执行此脚本。
-#   - 按正确顺序 (01 to 09) 依次调用所有R分析脚本。
+#   - 按正确顺序 (01 to 08) 依次调用所有R分析脚本。
 #   - 提供一个统一的入口点，简化整个分析流程的复现。
 #   - 记录每个脚本的开始和结束时间，并报告总耗时。
 #
@@ -93,8 +93,7 @@ SCRIPTS=(
     "scripts/R/05_module_analysis.R"
     "scripts/R/06_enrichment_analysis.R"
     "scripts/R/07_compound_target_viz.R"
-    "scripts/R/08_docking_validation_viz.R"
-    "scripts/R/09_interactive_network_viz.R"
+    "scripts/R/08_interactive_network_viz.R"
 )
 
 for SCRIPT in "${SCRIPTS[@]}"; do

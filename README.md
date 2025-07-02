@@ -27,9 +27,9 @@ This repository contains the complete computational pipeline for scientific rese
 🚀 **Improved scientific rigor** - All analyses strictly follow academic standards (no data fabrication, transparent methods)  
 
 ### **Validation Status:**
-✅ **Full pipeline tested** - All 9 R scripts execute successfully without errors  
+✅ **Full pipeline tested** - All 8 R scripts execute successfully without errors  
 ✅ **Cross-platform compatibility** - Tested on macOS with zsh shell environment  
-✅ **Reproducibility verified** - Complete analysis runs in ~7.5 minutes on standard hardware  
+✅ **Reproducibility verified** - Complete analysis runs in ~7 minutes on standard hardware  
 
 > **🎯 Research Summary**: This computational pipeline provides a transparent and reproducible analysis of how traditional Chinese medicine Lithospermum erythrorhizon (紫草) works against inflammatory diseases. The study identifies a core functional network of interacting proteins that are targets of the herb's active compounds.
 > 
@@ -53,7 +53,7 @@ cd Lithospermum_Network_Pharmacology_Reproducibility
 # - STRING database files → data/string_db/ directory
 
 # 3. Run complete analysis pipeline (fully automated)
-# This single script executes all R scripts (01-09) in sequence
+# This single script executes all R scripts (01-08) in sequence
 chmod +x scripts/R/run_all.sh
 ./scripts/R/run_all.sh
 
@@ -160,7 +160,7 @@ Lithospermum_Network_Pharmacology_Reproducibility/
 │   └── CMAUPv2.0_download_Human_Oral_Bioavailability_information_of_Ingredients_All.txt
 │
 ├── scripts/                    # Analysis scripts
-│   └── R/                     # R analysis scripts (01-09)
+│   └── R/                     # R analysis scripts (01-08)
 │       ├── 01_data_preparation.R           # Data loading & preprocessing
 │       ├── 02_ADMET_filtering.R           # Drug-likeness screening
 │       ├── 03_network_construction.R       # PPI network building
@@ -168,8 +168,7 @@ Lithospermum_Network_Pharmacology_Reproducibility/
 │       ├── 05_module_analysis.R           # Functional module detection
 │       ├── 06_enrichment_analysis.R       # Pathway enrichment analysis
 │       ├── 07_compound_target_viz.R       # Compound-target networks
-│       ├── 08_docking_validation_viz.R    # Molecular docking analysis
-│       ├── 09_interactive_network_viz.R   # Interactive visualizations
+│       ├── 08_interactive_network_viz.R   # Interactive visualizations
 │       └── run_all.sh                    # Complete pipeline runner
 │
 └── results/                   # Generated outputs
@@ -180,7 +179,6 @@ Lithospermum_Network_Pharmacology_Reproducibility/
     │   ├── Figure5_ADMET_Properties.png
     │   ├── Figure6_GO_Enrichment.png
     │   ├── Figure7_Compound_Target_Network.png
-    │   ├── molecular_docking_heatmap.pdf
     │   └── interactive_ppi_network.html    # Interactive network
     ├── tables/               # Data tables (CSV format)
     │   ├── functional_modules.csv
@@ -236,14 +234,8 @@ Lithospermum_Network_Pharmacology_Reproducibility/
 - **Method**: Bipartite network construction
 - **Features**: Node sizing by connectivity, edge weighting by interaction strength
 
-### **Stage 8: Molecular Docking Validation**
-- **Script**: `08_docking_validation_viz.R`
-- **Data Source**: Published literature (Motohashi et al. 2018)
-- **Compounds**: Shikonin, Alkannin, Celecoxib vs. PTGS2/COX-2
-- **Visualizations**: Advanced heatmaps, forest plots, bubble charts
-
-### **Stage 9: Interactive Network Visualization**
-- **Script**: `09_interactive_network_viz.R`
+### **Stage 8: Interactive Network Visualization**
+- **Script**: `08_interactive_network_viz.R`
 - **Technology**: visNetwork (HTML/JavaScript)
 - **Features**: Zoom, pan, node selection, dynamic layout
 - **Output**: `interactive_ppi_network.html`
