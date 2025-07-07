@@ -1,0 +1,18 @@
+{
+  "timestamp": "2025-07-07 11:05:34",
+  "script_version": "V3 - Curated",
+  "plant_info": {
+    "plant_id": "NPO11776",
+    "scientific_name": "Lithospermum erythrorhizon"
+  },
+  "curation_step": {
+    "initial_compounds_from_db": 26,
+    "removed_contaminants_ids": ["NPC159589", "NPC234053"],
+    "final_authentic_compounds": 24
+  },
+  "downstream_stats": {
+    "total_unique_targets": 40,
+    "total_interactions": 57
+  },
+  "next_step": "使用 'lithospermum_ingredients_curated.tsv' 作为输入，运行 02_ADMET_filtering.R"
+}

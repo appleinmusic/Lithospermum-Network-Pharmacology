@@ -193,23 +193,28 @@ Lithospermum_Network_Pharmacology_Reproducibility/
 
 ## 🔬 Analysis Pipeline Overview
 
-### **Stage 1: Data Preparation & Quality Control**
+### **Stage 1: Data Preparation, Review & Quality Control**
 - **Script**: `01_data_preparation.R`
-- **Input**: CMAUP v2.0 database files
-- **Output**: Clean ingredient and target datasets
-- **Key Features**: Data quality validation, comprehensive logging
+- **Input**: CMAUP v2.0 database raw files
+- **Output**: Curated and cleaned ingredient and target datasets for all downstream analysis
+- **Key Features**: 
+    - **Data Curation**: Actively removes known non-botanical contaminants based on prior review.
+    - **Quality Validation**: Ensures integrity of input data.
+    - **Comprehensive Logging**: Records each step of the process.
 
 ### **Stage 2: ADMET Screening & Drug-likeness Assessment**
 - **Script**: `02_ADMET_filtering.R`
+- **Input**: `data/processed/lithospermum_ingredients_curated.tsv` (containing 24 authentic compounds)
 - **Method**: De novo molecular descriptor calculation using RCDK
 - **Criteria**: Lipinski's Rule of Five (MW ≤ 500 Da, LogP ≤ 5, HBD ≤ 5, HBA ≤ 10)
-- **Output**: 22 drug-like compounds from 26 initial compounds (84.6% success rate)
+- **Output**: **20** final drug-like core compounds (`lithospermum_ingredients_filtered.tsv`) for network analysis.
 
-### **Stage 3: Protein-Protein Interaction Network Construction**
+### **Stage 3: Protein-Protein Interaction (PPI) Network Construction**
 - **Script**: `03_network_construction.R`
+- **Input**: The **32** protein targets corresponding to the 20 core compounds.
 - **Database**: STRING v12.0 (confidence score ≥ 400)
 - **Method**: High-confidence interaction filtering, largest connected component extraction
-- **Output**: Core network with 31 proteins and 192 interactions
+- **Output**: A core PPI network with **32** proteins and **192** interactions (`ppi_network.rds`)
 
 ### **Stage 4: Network Topology Analysis**
 - **Script**: `04_network_analysis_and_viz.R`

@@ -1,4 +1,4 @@
---- Network Analysis and Visualization Summary --- Timestamp: 2025-06-29 00:12:35.690335 
-[PPI Network] Nodes: 31 Edges: 192 Network Density: 0.4129 Average Degree: 12.39 
-[Centrality Analysis] Top 5 Hubs (by Degree): TP53, EGFR, PTGS2, CYP2C9, MAPK1 
+--- Network Analysis and Visualization Summary --- Timestamp: 2025-07-07 11:06:38.367385 
+[PPI Network] Nodes: 29 Edges: 174 Network Density: 0.4286 Average Degree: 12 
+[Centrality Analysis] Top 5 Hubs (by Degree): TP53, EGFR, PTGS2, MAPK1, CYP2C9 
 --- End of Summary ---

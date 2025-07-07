@@ -15,7 +15,7 @@ suppressPackageStartupMessages({
 })
 
 # Set working directory and create output directory
-# setwd("/Users/lgmoon/Desktop/zdhky")  # 相对路径版本，注释掉硬编码路径
+setwd("/Users/lgmoon/Desktop/zdhky")
 output_dir <- "results/figures"
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)

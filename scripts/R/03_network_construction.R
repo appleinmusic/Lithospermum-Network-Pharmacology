@@ -42,30 +42,28 @@ cat("✓ 加载了 ", length(filtered_ingredient_ids), " 个通过ADMET筛选的
 # ==============================================================================
 cat("正在根据筛选后的化合物确定靶点...\n")
 
-# 加载成分-靶点关联数据
-ingredient_targets_path <- "zwsjk/CMAUPv2.0_download_Ingredient_Target_Associations_ActivityValues_References.txt"
-ingredient_targets <- read_tsv(ingredient_targets_path, show_col_types = FALSE)
+# **关键修正**: 使用已处理的数据文件，确保与02_ADMET_filtering.R输出一致
+filtered_targets_path <- "data/processed/lithospermum_targets.tsv"
+if (!file.exists(filtered_targets_path)) {
+  stop("错误: 已处理的靶点文件 '", filtered_targets_path, "' 不存在。\n请先运行 01_data_preparation.R 和 02_ADMET_filtering.R 脚本。")
+}
 
-# 筛选紫草成分的靶点
-zicao_targets_data <- ingredient_targets %>%
-  filter(Ingredient_ID %in% filtered_ingredient_ids)
+# 加载已经处理和过滤的目标数据（这些数据已经与ADMET筛选后的化合物对应）
+zicao_targets_filtered <- read_tsv(filtered_targets_path, show_col_types = FALSE)
 
-cat("✓ 筛选后化合物的靶点关联数:", nrow(zicao_targets_data), "\n")
-
-# 加载靶点详细信息
-targets_path <- "zwsjk/CMAUPv2.0_download_Targets.txt"
-targets <- read_tsv(targets_path, show_col_types = FALSE)
-
-# 合并靶点信息
-zicao_targets_with_info <- zicao_targets_data %>%
-  left_join(targets, by = "Target_ID") %>%
-  filter(!is.na(Gene_Symbol))
+cat("✓ 筛选后化合物的靶点关联数:", nrow(zicao_targets_filtered), "\n")
 
 # 准备最终的靶点列表
-all_targets <- unique(zicao_targets_with_info$Gene_Symbol)
+all_targets <- unique(zicao_targets_filtered$Gene_Symbol)
 all_targets <- all_targets[!is.na(all_targets) & all_targets != ""]
 
 cat("✓ 最终用于网络构建的独特靶点数:", length(all_targets), "\n")
+
+# **重要**: 保存筛选后的目标数据用于验证
+filtered_targets_for_network <- zicao_targets_filtered %>%
+  select(Ingredient_ID, Gene_Symbol) %>%
+  distinct()
+write_tsv(filtered_targets_for_network, "data/processed/lithospermum_targets_for_network.tsv")
 
 
 # 3. 加载STRING数据库文件

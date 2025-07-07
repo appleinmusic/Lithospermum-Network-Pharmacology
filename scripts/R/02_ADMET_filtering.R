@@ -34,7 +34,7 @@ output_dir <- "results/figures"
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
 # **核心修改**: 读取上一步生成的、未经任何筛选的初始化合物文件
-ingredients_file <- "data/processed/lithospermum_ingredients_initial.tsv"
+ingredients_file <- "data/processed/lithospermum_ingredients_curated.tsv"
 if (!file.exists(ingredients_file)) {
   stop("错误：初始化合物文件 '", ingredients_file, "' 不存在。
 请先运行 01_data_preparation.R 脚本。")
@@ -139,6 +139,40 @@ write.csv(final_core_compounds, "results/admet_analysis_data.csv", row.names = F
 cat("✓ 核心化合物数据已保存至: results/admet_analysis_data.csv
 ")
 
+# **关键新增**：根据筛选后的化合物更新靶点数据
+cat("--> 正在根据筛选后的化合物更新靶点数据...
+")
+
+# 加载初始靶点数据
+targets_initial_file <- "data/processed/lithospermum_targets_initial.tsv"
+if (!file.exists(targets_initial_file)) {
+  stop("错误：初始靶点文件 '", targets_initial_file, "' 不存在。
+请先运行 01_data_preparation.R 脚本。")
+}
+
+targets_initial <- readr::read_tsv(targets_initial_file, show_col_types = FALSE)
+
+# 获取通过ADMET筛选的化合物ID列表
+filtered_ingredient_ids <- final_core_compounds$np_id
+
+# 筛选对应的靶点数据
+targets_filtered <- targets_initial %>%
+  filter(Ingredient_ID %in% filtered_ingredient_ids)
+
+# 保存筛选后的靶点数据
+write_tsv(targets_filtered, "data/processed/lithospermum_targets.tsv")
+cat("✓ 筛选后的靶点数据已保存至: data/processed/lithospermum_targets.tsv
+")
+cat("    筛选后靶点关联数:", nrow(targets_filtered), "
+")
+cat("    筛选后独特靶点数:", length(unique(targets_filtered$Gene_Symbol)), "
+")
+
+# 同时保存筛选后的化合物数据为TSV格式（与其他处理文件格式一致）
+write_tsv(final_core_compounds, "data/processed/lithospermum_ingredients_filtered.tsv")
+cat("✓ 筛选后的化合物数据也已保存为TSV格式: data/processed/lithospermum_ingredients_filtered.tsv
+")
+
 # --- 5. 可视化分析 ---
 # (这部分的可视化代码与您原脚本一致，因为它已经是基于预测值进行的，
 #  现在它将作用于未经预筛选的、更完整的数据集上，使其分析更具代表性)
@@ -152,16 +186,49 @@ p1 <- ggplot(compounds_screened, aes(x = MW_pred, y = LogP_pred)) +
   labs(title = "A: Molecular Weight vs. LogP", x = "Molecular Weight (Da)", y = "ALOGP") +
   theme_bw() + theme(legend.position = "none")
 
-# ... (此处省略了p2, p3, p4及组合图的ggplot代码，与您原脚本相同)
-# ... (为了简洁，此处省略了其他独立图的ggplot代码)
+# Panel B: TPSA Distribution
+p2 <- ggplot(compounds_screened, aes(x = TPSA_pred)) +
+  geom_histogram(aes(fill = passes_ADMET), bins = 20, alpha = 0.8, position = "identity") +
+  scale_fill_manual(values = c("FALSE" = "#E74C3C", "TRUE" = "#2ECC71"), name = "Passes Filter") +
+  geom_vline(xintercept = TPSA_MAX, linetype = "dashed", color = "#E74C3C") +
+  labs(title = "B: Topological Polar Surface Area (TPSA)", x = "TPSA (Å²)", y = "Count") +
+  theme_bw() + theme(legend.position = "none")
 
-# 假设所有绘图对象(p1, p2, p3, p4, combined_plot等)都已按原样生成
-# 仅展示保存部分
-# ggsave(file.path(output_dir, "Figure5_ADMET_Properties.png"), 
-#        plot = combined_plot, width = 12, height = 10, dpi = 600, units = "in")
+# Panel C: Compliance with Lipinski's Rule of Five
+lipinski_summary <- compounds_screened %>%
+  select(passes_lipinski_mw, passes_lipinski_logp, passes_lipinski_hbd, passes_lipinski_hba) %>%
+  summarise_all(sum) %>%
+  tidyr::gather(key = "Rule", value = "Count") %>%
+  mutate(Rule = factor(Rule, levels = c("passes_lipinski_mw", "passes_lipinski_logp", "passes_lipinski_hbd", "passes_lipinski_hba"),
+                       labels = c("MW <= 500", "LogP <= 5", "HBD <= 5", "HBA <= 10")))
 
-cat("✓ 可视化图表已生成（代码未显示，与V2版相同）。
-")
+p3 <- ggplot(lipinski_summary, aes(x = Rule, y = Count)) +
+  geom_col(aes(fill = Rule), alpha = 0.9) +
+  geom_text(aes(label = Count), vjust = -0.5, fontface = "bold") +
+  scale_fill_viridis_d(option = "C") +
+  labs(title = "C: Compliance with Lipinski's Rules", x = "Lipinski's Rule of Five", y = "Number of Passing Compounds") +
+  theme_bw() + theme(legend.position = "none", axis.text.x = element_text(angle = 25, hjust = 1))
+
+# Panel D: Hydrogen Bond Donors vs. Acceptors
+p4 <- ggplot(compounds_screened, aes(x = nHD_pred, y = nHA_pred)) +
+  geom_point(aes(color = passes_ADMET), size = 3, alpha = 0.7) +
+  scale_color_manual(values = c("FALSE" = "#E74C3C", "TRUE" = "#2ECC71"), name = "Passes Filter") +
+  geom_hline(yintercept = LIPINSKI_HBA_MAX, linetype = "dashed", color = "#E74C3C") +
+  geom_vline(xintercept = LIPINSKI_HBD_MAX, linetype = "dashed", color = "#E74C3C") +
+  labs(title = "D: H-Bond Donors vs. Acceptors", x = "Hydrogen Bond Donors (HBD)", y = "Hydrogen Bond Acceptors (HBA)") +
+  theme_bw() + theme(legend.position = "right")
+
+# Combine all plots into a single figure
+combined_plot <- grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2,
+                              top = textGrob("Physicochemical Properties of Core Active Compounds", 
+                                           gp = gpar(fontsize = 16, fontface = "bold")))
+
+# Save the combined plot
+ggsave(file.path(output_dir, "Figure5_ADMET_Properties.png"),
+       plot = combined_plot, width = 12, height = 10, dpi = 600, units = "in")
+
+cat("✓ ADMET properties visualization saved to results/figures/Figure5_ADMET_Properties.png\n")
+
 
 # --- 6. 生成最终统计摘要 ---
 admet_summary_text <- paste(

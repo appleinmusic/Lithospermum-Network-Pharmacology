@@ -3,16 +3,16 @@
 # 一键执行脚本：运行完整的紫草网络药理学分析流程
 #
 # 功能:
-#   - 自动检查所需数据库文件是否存在，如果不存在则提供清晰的下载指引。
 #   - 自动定位项目根目录，支持在任何位置执行此脚本。
 #   - 按正确顺序 (01 to 08) 依次调用所有R分析脚本。
 #   - 提供一个统一的入口点，简化整个分析流程的复现。
 #   - 记录每个脚本的开始和结束时间，并报告总耗时。
 #
 # 使用方法:
-#   1. 首次运行前赋予脚本执行权限: chmod +x scripts/R/run_all.sh
-#   2. 在终端中，直接运行此脚本: ./scripts/R/run_all.sh
-#   3. 如果数据库文件缺失，脚本将提示并退出，请根据提示下载文件。
+#   1. 确保所有 R 脚本 (01-08) 和数据都在正确的目录结构下。
+#   2. 在终端中，直接运行此脚本，无需关心当前路径。
+#   3. 首次运行前赋予脚本执行权限: chmod +x scripts/R/run_all.sh
+#   4. 运行命令: ./scripts/R/run_all.sh
 # ==============================================================================
 
 # Function to print a timestamped message
@@ -20,39 +20,7 @@ log_msg() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
 }
 
-# --- 1. Change to Project Root Directory ---
-# SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
-# PROJECT_ROOT=$(cd "$SCRIPT_DIR/../../" &> /dev/null && pwd)
-# cd "$PROJECT_ROOT" || { log_msg "无法切换到项目根目录，退出。"; exit 1; }
-# log_msg "当前工作目录已设置为项目根目录: $PROJECT_ROOT"
-
-# --- 2. Database Sanity Check ---
-log_msg "--- [数据检查] 正在验证必需的数据库文件... ---"
-CMAUP_DIR="zwsjk"
-STRING_DIR="data/string_db"
-CMAUP_FILES_EXPECTED=5
-STRING_FILES_EXPECTED=4
-
-# Check CMAUP directory
-if [ ! -d "$CMAUP_DIR" ] || [ -z "$(ls -A $CMAUP_DIR)" ]; then
-    log_msg "!!! [错误] CMAUP数据库目录 '$CMAUP_DIR' 不存在或为空."
-    log_msg "请从 https://www.bidd.group/CMAUP/download.html 下载所需文件并放置于 '$CMAUP_DIR' 目录下."
-    exit 1
-fi
-
-# Check STRING directory
-if [ ! -d "$STRING_DIR" ] || [ -z "$(ls -A $STRING_DIR)" ]; then
-    log_msg "!!! [错误] STRING数据库目录 '$STRING_DIR' 不存在或为空."
-    log_msg "请根据 README.md 中的 'Quick download commands' 指令下载所需文件."
-    exit 1
-fi
-
-log_msg "✓ 所有数据库目录均存在且不为空."
-log_msg "--- [数据检查] 完成 ---"
-echo ""
-
-
-# --- 3. Environment Sanity Check & Package Installation ---
+# --- 1. Environment Sanity Check & Package Installation ---
 log_msg "--- [环境检查] 正在验证并安装必需的R包... ---"
 R -e '
 options(repos = c(CRAN = "https://cran.rstudio.com/"))
@@ -60,14 +28,14 @@ required_packages <- c(
     "igraph", "ggplot2", "ggraph", "ggrepel", "dplyr", "RColorBrewer",
     "gridExtra", "grid", "corrplot", "pheatmap", "reshape2", "scales",
     "clusterProfiler", "org.Hs.eg.db", "enrichplot", "readr", "stringr",
-    "data.table", "rcdk", "ggforce", "concaveman", "visNetwork"
+    "data.table", "rcdk", "ggforce", "concaveman"
 )
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages) > 0) {
     cat("发现未安装的包，正在安装:", paste(new_packages, collapse=", "), "\n")
     install.packages(new_packages)
 } else {
-    cat("✓ 所有必需的R包均已安装.\n")
+    cat("✓ 所有必需的R包均已安装。\n")
 }
 '
 
@@ -77,10 +45,22 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 log_msg "--- [环境检查] 完成 ---"
-echo ""
 
 
-# --- 4. Execute Analysis Scripts in Order ---
+# --- 2. Change to Project Root Directory ---
+# Find the directory where this script is located
+# SCRIPT_DIR=$(dirname "$(realpath "$0")")
+# PROJECT_ROOT=$(realpath "$SCRIPT_DIR/../../")
+# cd "$PROJECT_ROOT"
+
+# Fallback for environments without realpath
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+PROJECT_ROOT=$(cd "$SCRIPT_DIR/../../" &> /dev/null && pwd)
+
+log_msg "项目根目录: $PROJECT_ROOT"
+cd "$PROJECT_ROOT" || { log_msg "无法切换到项目根目录，退出。"; exit 1; }
+
+# --- 3. Execute Analysis Scripts in Order ---
 log_msg "=== 开始执行完整的分析流程 ==="
 START_TIME=$SECONDS
 
@@ -116,6 +96,6 @@ done
 END_TIME=$SECONDS
 log_msg "=== 所有脚本已成功执行完毕 ==="
 log_msg "总耗时: $((END_TIME - START_TIME))s"
-log_msg "========================================="
+log_msg "========================================"
 
 exit 0
