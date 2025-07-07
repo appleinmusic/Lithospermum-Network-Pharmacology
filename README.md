@@ -4,9 +4,9 @@
 
 This repository contains the complete computational pipeline for scientific research on "Network Pharmacology Analysis Reveals the Multi-Target Mechanisms of Lithospermum erythrorhizon Against Inflammatory Diseases: A Comprehensive Study Based on CMAUP v2.0 and STRING Database Integration".
 
-**Repository**: https://github.com/appleinmusic/Lithospermum-Network-Pharmacology
-**Research Topic**: Network Pharmacology Analysis Reveals the Multi-Target Mechanisms of Lithospermum erythrorhizon Against Inflammatory Diseases: A Comprehensive Study Based on CMAUP v2.0 and STRING Database Integration
-**Status**: Research manuscript
+**Repository**: https://github.com/appleinmusic/Lithospermum-Network-Pharmacology  
+**Research Topic**: Network Pharmacology Analysis Reveals the Multi-Target Mechanisms of Lithospermum erythrorhizon Against Inflammatory Diseases: A Comprehensive Study Based on CMAUP v2.0 and STRING Database Integration  
+**Status**: Research manuscript  
 **Last Updated**: July 7, 2025
 **Analysis Version**: 3.1 (Latest Major Stability Update & Data Correction)
 
@@ -70,7 +70,7 @@ This repository contains the complete computational pipeline for scientific rese
 
 ### **Top Hub Proteins** (by degree centrality)
 1. **TP53** (tumor protein p53): degree = 42
-2. **EGFR** (epidermal growth factor receptor): degree = 30
+2. **EGFR** (epidermal growth factor receptor): degree = 30  
 3. **PTGS2** (COX-2, prostaglandin synthase 2): degree = 26
 
 ### **Key Enriched Pathways** (FDR < 0.05, based on 32 corrected targets)
