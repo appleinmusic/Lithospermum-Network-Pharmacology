@@ -15,12 +15,13 @@ R_SCRIPTS=(
   "scripts/R/01_data_preparation.R"
   "scripts/R/02_ADMET_filtering.R"
   "scripts/R/03_network_construction.R"
+  "scripts/R/03a_network_construction_high_confidence.R"
   "scripts/R/04_network_analysis_and_viz.R"
   "scripts/R/05_module_analysis.R"
   "scripts/R/06_enrichment_analysis.R"
+  "scripts/R/06a_enrichment_analysis_high_confidence.R"
   "scripts/R/07_compound_target_viz.R"
-  "scripts/R/08_docking_validation_viz.R"
-  "scripts/R/09_interactive_network_viz.R"
+  "scripts/R/08_interactive_network_viz.R"
 )
 
 # --- Setup ---
