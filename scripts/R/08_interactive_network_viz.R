@@ -22,7 +22,7 @@ cat("--- 环境设置完成，已加载所需R包 ---\n")
 # --- 2. 定义文件路径 ---
 
 # 输入文件
-ppi_network_path <- "results/network/ppi_network.rds"
+ppi_network_path <- "results/network/ppi_network_high_confidence.rds"
 node_stats_path <- "results/tables/key_nodes_analysis.csv" # 包含中心性指标的文件
 mapping_path <- "results/tables/target_string_mapping.csv" # 包含ID映射的文件
 
@@ -35,17 +35,21 @@ if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
 }
 
-cat(paste("输入PPI网络文件:", ppi_network_path, "\n"))
-cat(paste("输入节点统计文件:", node_stats_path, "\n"))
-cat(paste("输入ID映射文件:", mapping_path, "\n"))
-cat(paste("输出HTML文件:", output_html_path, "\n"))
+cat(paste("输入PPI网络文件:", ppi_network_path, "
+"))
+cat(paste("输入节点统计文件:", node_stats_path, "
+"))
+cat(paste("输入ID映射文件:", mapping_path, "
+"))
+cat(paste("输出HTML文件:", output_html_path, "
+"))
 
 
 # --- 3. 加载并准备数据 ---
 
 # 加载igraph对象
 if (!file.exists(ppi_network_path)) {
-  stop("错误: PPI网络文件不存在! 请先运行 '03_network_construction.R' 脚本。")
+  stop("错误: PPI网络文件不存在! 请先运行 '03a_network_construction_high_confidence.R' 脚本。")
 }
 g <- readRDS(ppi_network_path)
 
